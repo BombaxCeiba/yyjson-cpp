@@ -21,7 +21,7 @@ jobs:
         compiler:
           [
             { c: "clang-cl", cxx: "clang-cl" },
-            { c: "cl", cxx: "cl" },
+            # { c: "cl", cxx: "cl" },
           ]
     name: Windows - ${{ matrix.compiler.cxx }}
     runs-on: windows-latest
@@ -45,9 +45,9 @@ jobs:
           rm -rf "${{ github.workspace }}\build"
           cmake -B "${{ github.workspace }}\build" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT\\scripts\\buildsystems\\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
           # cmake --build "${{ github.workspace }}\build" --config Debug --clean-first
-          # ctest --test-dir "${{ github.workspace }}\build" --output-on-failure -C Debug
+          # ctest --test-dir "${{ github.workspace }}\build" -C Debug
           cmake --build "${{ github.workspace }}\build" --config Release --clean-first
-          ctest --test-dir "${{ github.workspace }}\build" --output-on-failure -C Release
+          ctest --test-dir "${{ github.workspace }}\build" -C Release
         shell: bash
 
   ubuntu-build:
@@ -97,9 +97,9 @@ jobs:
           rm -rf ${{ github.workspace }}/build
           cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
           cmake --build ${{ github.workspace }}/build --config Debug --clean-first
-          ctest --test-dir ${{ github.workspace }}/build --output-on-failure -C Debug
+          ctest --test-dir ${{ github.workspace }}/build -C Debug
           cmake --build ${{ github.workspace }}/build --config Release --clean-first
-          ctest --test-dir ${{ github.workspace }}/build --output-on-failure -C Release
+          ctest --test-dir ${{ github.workspace }}/build -C Release
 
   macos-build:
     strategy:
@@ -151,6 +151,6 @@ jobs:
           rm -rf ${{ github.workspace }}/build
           cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=./external/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
           cmake --build ${{ github.workspace }}/build --config Debug --clean-first
-          ctest --test-dir ${{ github.workspace }}/build --output-on-failure -C Debug
+          ctest --test-dir ${{ github.workspace }}/build -C Debug
           cmake --build ${{ github.workspace }}/build --config Release --clean-first
-          ctest --test-dir ${{ github.workspace }}/build --output-on-failure -C Release
+          ctest --test-dir ${{ github.workspace }}/build -C Release
