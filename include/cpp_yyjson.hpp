@@ -3994,15 +3994,55 @@ namespace yyjson
                 else
                     throw bad_cast(fmt::format("{} is not constructible from JSON string", NAMEOF_TYPE(T)));
             }
-            else if (const auto vi = json.as_int(); vi.has_value())
+            else if (const auto vui = json.as_uint(); vui.has_value())
             {
+                if constexpr (std::integral<T>)
+                {
+                    if (*vui <= std::numeric_limits<T>::max())
+                    {
+                        return static_cast<T>(*vui);
+                    }
+                    throw bad_cast(fmt::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               NAMEOF_TYPE(T), *vui));
+                }
 #ifdef _MSC_VER
-                if constexpr (requires { T(std::declval<std::int64_t>()); })
+                else if constexpr (requires { T(std::declval<std::uint64_t>()); })
 #else
-                if constexpr (std::constructible_from<T, std::int64_t>)
+                else if constexpr (std::constructible_from<T, std::uint64_t>)
 #endif
                 {
-                    return T(*vi);
+                    return T(*vui);
+                }
+                else
+                    throw bad_cast(fmt::format("{} is not constructible from JSON integer", NAMEOF_TYPE(T)));
+            }
+            else if (const auto vsi = json.as_sint(); vsi.has_value())
+            {
+                if constexpr (std::unsigned_integral<T>)
+                {
+                    if (*vsi >= 0 && static_cast<std::uint64_t>(*vsi) <= std::numeric_limits<T>::max())
+                    {
+                        return static_cast<T>(*vsi);
+                    }
+                    throw bad_cast(fmt::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               NAMEOF_TYPE(T), *vsi));
+                }
+                else if constexpr (std::signed_integral<T>)
+                {
+                    if (*vsi >= std::numeric_limits<T>::min() && *vsi <= std::numeric_limits<T>::max())
+                    {
+                        return static_cast<T>(*vsi);
+                    }
+                    throw bad_cast(fmt::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               NAMEOF_TYPE(T), *vsi));
+                }
+#ifdef _MSC_VER
+                else if constexpr (requires { T(std::declval<std::int64_t>()); })
+#else
+                else if constexpr (std::constructible_from<T, std::int64_t>)
+#endif
+                {
+                    return T(*vsi);
                 }
                 else
                     throw bad_cast(fmt::format("{} is not constructible from JSON integer", NAMEOF_TYPE(T)));

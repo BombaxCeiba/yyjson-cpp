@@ -875,10 +875,9 @@ TEST(Writer, ValueExamples)
                                                  std::ranges::views::transform([](auto x) { return x * x; }))));
     EXPECT_EQ(
         R"({"first":1.0,"second":2.0,"third":3.0})",
-        fmt::format("{}", value(std::map<std::string_view, double>{{"first", 1.5}, {"second", 2.5}, {"third", 3.5}} |
-                                std::ranges::views::transform([](auto x) {
-                                    return decltype(x){x.first, x.second - 0.5};
-                                }))));
+        fmt::format("{}",
+                    value(std::map<std::string_view, double>{{"first", 1.5}, {"second", 2.5}, {"third", 3.5}} |
+                          std::ranges::views::transform([](auto x) { return decltype(x){x.first, x.second - 0.5}; }))));
 #endif
 
     // copy assign
@@ -2065,9 +2064,7 @@ TEST(Writer, ObjectConstructorExample)
     // transform view
     EXPECT_EQ(R"({"first":1.0,"second":2.0,"third":3.0})",
               value(std::map<std::string_view, double>{{"first", 1.5}, {"second", 2.5}, {"third", 3.5}} |
-                    std::ranges::views::transform([](auto x) {
-                        return decltype(x){x.first, x.second - 0.5};
-                    }))
+                    std::ranges::views::transform([](auto x) { return decltype(x){x.first, x.second - 0.5}; }))
                   .write());
 #endif
 
@@ -2742,9 +2739,10 @@ TEST(Reader, ValueExamples)
     {
         auto val = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1;
         auto doc = read(fmt::format("{}", val));
-        EXPECT_TRUE(doc.as_int().has_value());
-        EXPECT_EQ(static_cast<std::int64_t>(val), cast<std::int64_t>(doc));
-        EXPECT_EQ(fmt::format("{}", val), doc.write());
+        EXPECT_TRUE(doc.is_int());
+        EXPECT_TRUE(doc.is_uint());
+        EXPECT_FALSE(doc.is_sint());
+        EXPECT_THROW(cast<std::int64_t>(doc), bad_cast);
     }
     {
         auto val = 3.141592;
