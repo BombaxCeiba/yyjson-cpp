@@ -22,7 +22,10 @@
 #include <fmt/format.h>
 #endif
 #include <yyjson.h>
-#include "field_reflection.hpp"
+#include <boost/pfr.hpp>
+static_assert(BOOST_PFR_CORE_NAME_ENABLED > 0,
+    "boost::pfr field name reflection is required but not enabled. "
+    "Ensure you are using boost::pfr >= 1.84 with a supported compiler.");
 
 namespace yyjson
 {
@@ -3106,12 +3109,12 @@ namespace yyjson
 
             template <typename T>
             concept to_json_with_reflection = []<std::size_t... Is>(std::index_sequence<Is...>) {
-                return field_reflection::field_namable<T> && requires(const T& t) {
-                    (std::declval<object_ref&>().emplace(field_reflection::field_name<T, Is>,
-                                                         field_reflection::get_field<Is>(t)),
+                return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
+                    (std::declval<object_ref&>().emplace(boost::pfr::get_name<Is, T>(),
+                                                         boost::pfr::get<Is>(t)),
                      ...);
                 };
-            }(std::make_index_sequence<field_reflection::field_count<T>>());
+            }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
 
         }  // namespace detail
 
@@ -3889,19 +3892,20 @@ namespace yyjson
         { yyjson::cast<T>(json) };
     };
 
-    template <json_object Json, field_reflection::field_referenceable T>
+    template <json_object Json, typename T>
+        requires std::is_aggregate_v<T>
     constexpr bool all_fields_castable_impl()
     {
         return []<std::size_t... I>(std::index_sequence<I...>) {
             return (
-                castable<typename std::ranges::range_value_t<Json>::second_type, field_reflection::field_type<T, I>> &&
-                ...);
-        }(std::make_index_sequence<field_reflection::field_count<T>>{});
+                castable<typename std::ranges::range_value_t<Json>::second_type,
+                         std::remove_cvref_t<decltype(boost::pfr::get<I>(std::declval<T&>()))>> && ...);
+        }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>{});
     }
 
     template <typename Json, typename T>
     concept all_fields_castable =
-        json_object<Json> && field_reflection::field_referenceable<T> && all_fields_castable_impl<Json, T>();
+        json_object<Json> && std::is_aggregate_v<T> && all_fields_castable_impl<Json, T>();
 
     template <typename T>
     struct detail::default_caster
