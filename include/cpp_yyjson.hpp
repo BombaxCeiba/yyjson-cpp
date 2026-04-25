@@ -112,21 +112,22 @@ namespace yyjson
                 }
                 else
                 {
+                    auto c = static_cast<unsigned char>(input[i]);
                     if (out == 0)
                     {
                         result.data_[out++] = static_cast<char>(
-                            std::tolower(static_cast<unsigned char>(input[i])));
+                            c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c);
                     }
                     else if (next_upper)
                     {
                         result.data_[out++] = static_cast<char>(
-                            std::toupper(static_cast<unsigned char>(input[i])));
+                            c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c);
                         next_upper = false;
                     }
                     else
                     {
                         result.data_[out++] = static_cast<char>(
-                            std::tolower(static_cast<unsigned char>(input[i])));
+                            c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c);
                     }
                 }
             }
@@ -215,9 +216,8 @@ namespace yyjson
             return name;
         }
 
-        // constexpr instead of consteval for boost::pfr::get_name compatibility
         template <std::size_t I, typename T>
-        constexpr auto transformed_name()
+        consteval auto transformed_name()
         {
             constexpr auto raw = fixed_string<128>(boost::pfr::get_name<I, T>());
             constexpr auto after_prefix = strip_prefixes<T>(raw);
@@ -225,6 +225,12 @@ namespace yyjson
             using transform_type = typename field_name_rule<T>::type;
             return transform_type::transform(after_suffix);
         }
+
+        // Pre-computed transformed field name stored as a compile-time constant.
+        // Using a variable template avoids the need to call transformed_name()
+        // (a consteval/immediate function) inside runtime lambdas.
+        template <std::size_t I, typename T>
+        inline constexpr auto transformed_name_v = transformed_name<I, T>();
 
         template <typename T, std::size_t I, std::size_t... Js>
         consteval bool check_field_unique(std::index_sequence<Js...>)
@@ -3320,7 +3326,7 @@ namespace yyjson
                 (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
                 []<std::size_t... Is>(std::index_sequence<Is...>) {
                     return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
-                        (std::declval<object_ref&>().emplace(yyjson::detail::transformed_name<Is, T>(),
+                        (std::declval<object_ref&>().emplace(yyjson::detail::transformed_name_v<Is, T>,
                                                              boost::pfr::get<Is>(t)),
                          ...);
                     };
@@ -4177,7 +4183,7 @@ namespace yyjson
             for (auto&& [key, value] : obj)
             {
                 [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                    ((key == detail::transformed_name<Is, T>() &&
+                    ((key == detail::transformed_name_v<Is, T> &&
                       (boost::pfr::get<Is>(result) = cast<std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>>(value), true))
                      || ...);
                 }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
@@ -4371,7 +4377,7 @@ namespace yyjson
         static auto to_json(writer::object_ref& obj, const T& t, Ts... ts)
         {
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                (obj.emplace(detail::transformed_name<Is, T>(), boost::pfr::get<Is>(t), ts...), ...);
+                (obj.emplace(detail::transformed_name_v<Is, T>, boost::pfr::get<Is>(t), ts...), ...);
             }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
         template <copy_string_args... Ts>
@@ -4379,7 +4385,7 @@ namespace yyjson
         static auto to_json(writer::object_ref& obj, T&& t, Ts... ts)
         {
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                (obj.emplace(detail::transformed_name<Is, T>(), std::move(boost::pfr::get<Is>(t)), ts...), ...);
+                (obj.emplace(detail::transformed_name_v<Is, T>, std::move(boost::pfr::get<Is>(t)), ts...), ...);
             }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
     };
