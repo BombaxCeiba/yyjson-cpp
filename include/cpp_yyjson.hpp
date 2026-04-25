@@ -3962,14 +3962,11 @@ namespace yyjson
             auto result = T();
             for (auto&& [key, value] : obj)
             {
-                field_reflection::any_of_field(result, [&](auto field_name, auto& field_value) {
-                    if (key == field_name)
-                    {
-                        field_value = cast<std::remove_cvref_t<decltype(field_value)>>(value);
-                        return true;
-                    }
-                    return false;
-                });
+                [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                    ((key == boost::pfr::get_name<Is, T>() &&
+                      (boost::pfr::get<Is>(result) = cast<std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>>(value), true))
+                     || ...);
+                }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
             }
             return result;
         }
@@ -4159,17 +4156,17 @@ namespace yyjson
         requires writer::detail::to_json_with_reflection<T> && (!visitable<T>)
         static auto to_json(writer::object_ref& obj, const T& t, Ts... ts)
         {
-            field_reflection::for_each_field(t, [&](std::string_view field_name, const auto& field_value) {
-                obj.emplace(field_name, field_value, ts...);
-            });
+            [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (obj.emplace(boost::pfr::get_name<Is, T>(), boost::pfr::get<Is>(t), ts...), ...);
+            }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
         template <copy_string_args... Ts>
         requires writer::detail::to_json_with_reflection<T> && (!visitable<T>)
         static auto to_json(writer::object_ref& obj, T&& t, Ts... ts)
         {
-            field_reflection::for_each_field(t, [&](std::string_view field_name, auto& field_value) {
-                obj.emplace(field_name, std::move(field_value), ts...);
-            });
+            [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (obj.emplace(boost::pfr::get_name<Is, T>(), std::move(boost::pfr::get<Is>(t)), ts...), ...);
+            }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
     };
 
