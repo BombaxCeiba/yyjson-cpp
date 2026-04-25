@@ -1384,7 +1384,7 @@ struct yyjson::caster<X>
             }
             return result;
         }
-        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", typeid(X).name()));
+        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", yyjson::detail::type_name<X>()));
     }
 };
 ```
