@@ -69,6 +69,13 @@ if(CPPYYJSON_USE_STD_FORMAT)
         "Set -DCPPYYJSON_USE_STD_FORMAT=OFF to use {fmt} instead."
       )
     endif()
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "18")
+      message(FATAL_ERROR
+        "std::format requires Clang >= 18 (found ${CMAKE_CXX_COMPILER_VERSION}). "
+        "Set -DCPPYYJSON_USE_STD_FORMAT=OFF to use {fmt} instead."
+      )
+    endif()
   endif()
 endif()
 
