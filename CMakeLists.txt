@@ -33,10 +33,15 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 # dependencies
+include(FetchContent)
+
 function(find_and_link package_name qualified_name)
   cmake_parse_arguments(FIND_AND_LINK "" "VERSION" "" ${ARGN})
   if(NOT TARGET ${package_name} OR CPPYYJSON_IS_TOPLEVEL_PROJECT)
-    find_package(${package_name} ${FIND_AND_LINK_VERSION} CONFIG REQUIRED)
+    find_package(${package_name} ${FIND_AND_LINK_VERSION} CONFIG QUIET)
+    if(NOT ${package_name}_FOUND)
+      return()
+    endif()
     target_link_libraries(${PROJECT_NAME} INTERFACE ${qualified_name})
   else()
     target_link_libraries(${PROJECT_NAME} INTERFACE ${package_name})
@@ -44,6 +49,16 @@ function(find_and_link package_name qualified_name)
 endfunction()
 
 find_and_link(yyjson yyjson::yyjson)
+
+if(NOT yyjson_FOUND)
+  FetchContent_Declare(
+    yyjson
+    GIT_REPOSITORY https://github.com/ibireme/yyjson
+    GIT_TAG 0.12.0
+    GIT_SHALLOW TRUE)
+  FetchContent_MakeAvailable(yyjson)
+  target_link_libraries(${PROJECT_NAME} INTERFACE yyjson)
+endif()
 find_and_link(fmt fmt::fmt-header-only VERSION 10.0.0)
 find_and_link(nameof nameof::nameof VERSION 0.10.0)
 
