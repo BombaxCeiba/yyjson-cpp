@@ -3936,7 +3936,6 @@ namespace yyjson
     };
 
     template <json_object Json, typename T>
-        requires std::is_aggregate_v<T> && (!std::is_array_v<T>) && (!detail::has_base<T>)
     constexpr bool all_fields_castable_impl()
     {
         return []<std::size_t... I>(std::index_sequence<I...>) {
@@ -4003,6 +4002,8 @@ namespace yyjson
         static auto from_json(const Json& obj)
         {
             auto result = T();
+            // NOTE: Unknown JSON keys are silently ignored; duplicate keys use the last value.
+            // This matches the behavior of the previous field_reflection implementation.
             for (auto&& [key, value] : obj)
             {
                 [&]<std::size_t... Is>(std::index_sequence<Is...>) {
