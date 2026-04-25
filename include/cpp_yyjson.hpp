@@ -38,6 +38,109 @@ namespace yyjson
     inline constexpr auto yyjson_required_version = 0x000600;
     static_assert(YYJSON_VERSION_HEX >= yyjson_required_version, "Minimum required yyjson version is 0.6.0");
 
+    // ---- Name transformation infrastructure (in yyjson namespace) ----
+
+    template <std::size_t N>
+    struct fixed_string
+    {
+        std::array<char, N> data_{};
+        std::size_t size_{0};
+
+        consteval fixed_string() = default;
+
+        consteval fixed_string(std::string_view sv)
+            : size_(sv.size())
+        {
+            for (std::size_t i = 0; i < sv.size(); ++i)
+            {
+                data_[i] = sv[i];
+            }
+        }
+
+        [[nodiscard]] constexpr std::string_view view() const noexcept
+        {
+            return {data_.data(), size_};
+        }
+
+        [[nodiscard]] constexpr operator std::string_view() const noexcept
+        {
+            return view();
+        }
+
+        [[nodiscard]] constexpr bool operator==(std::string_view other) const noexcept
+        {
+            return view() == other;
+        }
+
+        [[nodiscard]] constexpr bool operator==(const fixed_string& other) const noexcept
+        {
+            return view() == other.view();
+        }
+
+        [[nodiscard]] consteval std::size_t size() const noexcept
+        {
+            return size_;
+        }
+
+        [[nodiscard]] consteval char operator[](std::size_t i) const noexcept
+        {
+            return data_[i];
+        }
+    };
+
+    struct identity_transform
+    {
+        static consteval auto transform(fixed_string<128> input) -> fixed_string<128>
+        {
+            return input;
+        }
+    };
+
+    struct snake_to_camel_transform
+    {
+        static consteval auto transform(fixed_string<128> input) -> fixed_string<128>
+        {
+            fixed_string<128> result;
+            std::size_t out = 0;
+            bool next_upper = false;
+
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                if (input[i] == '_')
+                {
+                    next_upper = true;
+                }
+                else
+                {
+                    if (out == 0)
+                    {
+                        result.data_[out++] = static_cast<char>(
+                            std::tolower(static_cast<unsigned char>(input[i])));
+                    }
+                    else if (next_upper)
+                    {
+                        result.data_[out++] = static_cast<char>(
+                            std::toupper(static_cast<unsigned char>(input[i])));
+                        next_upper = false;
+                    }
+                    else
+                    {
+                        result.data_[out++] = static_cast<char>(
+                            std::tolower(static_cast<unsigned char>(input[i])));
+                    }
+                }
+            }
+            result.size_ = out;
+            return result;
+        }
+    };
+
+    template <typename T>
+    struct field_name_rule
+    {
+        using type = identity_transform;
+    };
+
     namespace detail
     {
 #if defined(__GNUC__) || defined(__clang__)
@@ -77,6 +180,70 @@ namespace yyjson
                 return requires { T{std::declval<any_rref_base<T>>()}; };
             }
         }();
+
+        // ---- Name transformation helpers ----
+
+        template <typename T>
+        consteval auto strip_prefixes(fixed_string<128> name) -> fixed_string<128>
+        {
+            if constexpr (requires { typename field_name_rule<T>::type; field_name_rule<T>::prefixes; })
+            {
+                for (const auto& prefix : field_name_rule<T>::prefixes)
+                {
+                    if (name.view().starts_with(prefix))
+                    {
+                        return fixed_string<128>(name.view().substr(prefix.size()));
+                    }
+                }
+            }
+            return name;
+        }
+
+        template <typename T>
+        consteval auto strip_suffixes(fixed_string<128> name) -> fixed_string<128>
+        {
+            if constexpr (requires { typename field_name_rule<T>::type; field_name_rule<T>::suffixes; })
+            {
+                for (const auto& suffix : field_name_rule<T>::suffixes)
+                {
+                    if (name.view().ends_with(suffix) && name.size() > suffix.size())
+                    {
+                        return fixed_string<128>(name.view().substr(0, name.size() - suffix.size()));
+                    }
+                }
+            }
+            return name;
+        }
+
+        // constexpr instead of consteval for boost::pfr::get_name compatibility
+        template <std::size_t I, typename T>
+        constexpr auto transformed_name()
+        {
+            constexpr auto raw = fixed_string<128>(boost::pfr::get_name<I, T>());
+            constexpr auto after_prefix = strip_prefixes<T>(raw);
+            constexpr auto after_suffix = strip_suffixes<T>(after_prefix);
+            using transform_type = typename field_name_rule<T>::type;
+            return transform_type::transform(after_suffix);
+        }
+
+        template <typename T, std::size_t I, std::size_t... Js>
+        consteval bool check_field_unique(std::index_sequence<Js...>)
+        {
+            return ((transformed_name<I, T>().view() != transformed_name<Js, T>().view()) && ...);
+        }
+
+        template <typename T, std::size_t... Is>
+        consteval bool check_all_fields_unique(std::index_sequence<Is...>)
+        {
+            return (check_field_unique<T, Is>(std::make_index_sequence<Is>()) && ...);
+        }
+
+        template <typename T>
+        consteval bool check_no_ambiguous_names()
+        {
+            return check_all_fields_unique<T>(
+                std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
+        }
     }  // namespace detail
 
     class bad_cast : public std::runtime_error
@@ -3153,7 +3320,7 @@ namespace yyjson
                 (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
                 []<std::size_t... Is>(std::index_sequence<Is...>) {
                     return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
-                        (std::declval<object_ref&>().emplace(boost::pfr::get_name<Is, T>(),
+                        (std::declval<object_ref&>().emplace(yyjson::detail::transformed_name<Is, T>(),
                                                              boost::pfr::get<Is>(t)),
                          ...);
                     };
@@ -4002,12 +4169,15 @@ namespace yyjson
         static auto from_json(const Json& obj)
         {
             auto result = T();
+            static_assert(detail::check_no_ambiguous_names<T>(),
+                "Name transformation produces duplicate JSON keys. "
+                "Check your field_name_rule<T> specialization.");
             // NOTE: Unknown JSON keys are silently ignored; duplicate keys use the last value.
             // This matches the behavior of the previous field_reflection implementation.
             for (auto&& [key, value] : obj)
             {
                 [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                    ((key == boost::pfr::get_name<Is, T>() &&
+                    ((key == detail::transformed_name<Is, T>() &&
                       (boost::pfr::get<Is>(result) = cast<std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>>(value), true))
                      || ...);
                 }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
@@ -4201,7 +4371,7 @@ namespace yyjson
         static auto to_json(writer::object_ref& obj, const T& t, Ts... ts)
         {
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                (obj.emplace(boost::pfr::get_name<Is, T>(), boost::pfr::get<Is>(t), ts...), ...);
+                (obj.emplace(detail::transformed_name<Is, T>(), boost::pfr::get<Is>(t), ts...), ...);
             }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
         template <copy_string_args... Ts>
@@ -4209,7 +4379,7 @@ namespace yyjson
         static auto to_json(writer::object_ref& obj, T&& t, Ts... ts)
         {
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                (obj.emplace(boost::pfr::get_name<Is, T>(), std::move(boost::pfr::get<Is>(t)), ts...), ...);
+                (obj.emplace(detail::transformed_name<Is, T>(), std::move(boost::pfr::get<Is>(t)), ts...), ...);
             }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
         }
     };
