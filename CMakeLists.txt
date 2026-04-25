@@ -15,6 +15,7 @@ endif()
 option(CPPYYJSON_BUILD_TEST "Build ${PROJECT_NAME} tests"
        ${CPPYYJSON_IS_TOPLEVEL_PROJECT})
 option(CPPYYJSON_BUILD_BENCH "Build ${PROJECT_NAME} tests and benchmarks" OFF)
+option(CPPYYJSON_USE_STD_FORMAT "Use std::format instead of {fmt}" ON)
 
 # library
 include(GNUInstallDirs)
@@ -59,7 +60,21 @@ if(NOT yyjson_FOUND)
   FetchContent_MakeAvailable(yyjson)
   target_link_libraries(${PROJECT_NAME} INTERFACE yyjson)
 endif()
-find_and_link(fmt fmt::fmt-header-only VERSION 10.0.0)
+# Validate compiler support for std::format
+if(CPPYYJSON_USE_STD_FORMAT)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "13")
+      message(FATAL_ERROR
+        "std::format requires GCC >= 13 (found ${CMAKE_CXX_COMPILER_VERSION}). "
+        "Set -DCPPYYJSON_USE_STD_FORMAT=OFF to use {fmt} instead."
+      )
+    endif()
+  endif()
+endif()
+
+if(NOT CPPYYJSON_USE_STD_FORMAT)
+  find_and_link(fmt fmt::fmt-header-only VERSION 10.0.0)
+endif()
 find_and_link(nameof nameof::nameof VERSION 0.10.0)
 
 # boost::pfr: find_package with CPPYYJSON_PFR_TARGET fallback
@@ -89,6 +104,11 @@ else()
     "  1. Install boost::pfr (e.g., via vcpkg: vcpkg install boost-pfr)\n"
     "  2. Set -DCPPYYJSON_PFR_TARGET=<target> to specify an existing CMake target"
   )
+endif()
+
+# Propagate format backend choice as compile definition
+if(CPPYYJSON_USE_STD_FORMAT)
+  target_compile_definitions(${PROJECT_NAME} INTERFACE CPPYYJSON_USE_STD_FORMAT)
 endif()
 
 # install

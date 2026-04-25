@@ -2,10 +2,13 @@
 
 set(CPPYYJSON_VERSION @PROJECT_VERSION@)
 set(CPPYYJSON_PFR_TARGET "@CPPYYJSON_PFR_TARGET@")
+set(CPPYYJSON_USE_STD_FORMAT @CPPYYJSON_USE_STD_FORMAT@)
 
 include(CMakeFindDependencyMacro)
 find_dependency(yyjson CONFIG REQUIRED)
-find_dependency(fmt 10.0.0 CONFIG REQUIRED)
+if(NOT CPPYYJSON_USE_STD_FORMAT)
+  find_dependency(fmt 10.0.0 CONFIG REQUIRED)
+endif()
 find_dependency(nameof 0.10.0 CONFIG REQUIRED)
 
 # Propagate boost::pfr dependency
