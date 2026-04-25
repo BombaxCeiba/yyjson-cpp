@@ -3096,7 +3096,7 @@ TEST(Readme, Example)
         // JSON array/object to container conversion
         auto numbers = cast<std::vector<int>>(list);
         auto currency = cast<std::map<std::string_view, double>>(dict);
-        CPPYYJSON_FMT_NS::print("{}\n", obj);
+        std::cout << CPPYYJSON_FMT_NS::format("{}\n", obj);
     }
     {
         // Create a new JSON value from primitive types
