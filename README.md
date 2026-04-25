@@ -10,12 +10,13 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
     1.  [JSON Reader](#json-reader)
     2.  [JSON Writer](#json-writer)
     3.  [Serialization and Deserialization](#serialization-and-deserialization)
-4.  [Installation](#installation)
+4.  [Field Name Transformation](#field-name-transformation)
+5.  [Installation](#installation)
     1.  [Using CMake](#using-cmake)
-5.  [Benchmark](#benchmark)
+6.  [Benchmark](#benchmark)
     1.  [Read performance](#read-performance)
     2.  [Write performance](#write-performance)
-6.  [Reference](#reference)
+7.  [Reference](#reference)
     1.  [Namespaces](#namespaces)
     2.  [Immutable JSON classes](#immutable-json-classes)
     3.  [Mutable JSON classes](#mutable-json-classes)
@@ -23,7 +24,7 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
     5.  [Serialize and deserialize JSON](#serialize-and-deserialize-json)
     6.  [Performance best practices](#performance-best-practices)
     7.  [Misc](#misc)
-7.  [Author](#author)
+8.  [Author](#author)
 
 ## Features
 
@@ -32,7 +33,8 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
 *   STL-like accessors
 *   Intuitive JSON construction
 *   Mutual transformation of JSON and C++ classes with
-    *   compile-time reflection of struct/class field name
+    *   compile-time reflection of struct/class field name (via [boost::pfr](https://github.com/boostorg/pfr))
+    *   compile-time field name transformation (e.g., snake_case to camelCase)
     *   pre-defined STL casters
     *   user-defined casters in two ways
 *   Minimum overhead compared to yyjson
@@ -52,7 +54,8 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
         *   ❌️ MSVC 19.41.34123.0
         *   ❌️ MSVC 19.43.34808.0
 *   [yyjson](https://github.com/ibireme/yyjson)
-*   [{fmt}](https://github.com/fmtlib/fmt)
+*   [boost::pfr](https://github.com/boostorg/pfr) >= 1.84 (for compile-time field reflection and name transformation)
+*   [{fmt}](https://github.com/fmtlib/fmt) (optional — can use `std::format` instead via CMake option)
 
 ## Overview
 
@@ -171,7 +174,7 @@ auto init_obj = object{{"id", 1},
 As shown above, cpp-yyjson provides conversion between JSON value/array/object classes and C++ ranges and container types recursively. In addition to that, the following additional JSON casters are available (see the [reference](#serialize-and-deserialize-json) in detail):
 
 *   Pre-defined STL casters (e.g., `std::optional`, `std::variant`, `std::tuple` ([C++23 tuple-like](https://wg21.link/P2165R4))).
-*   Conversion using compile-time reflection of struct/class if it is available.
+*   Conversion using compile-time reflection of struct/class if it is available (via [boost::pfr](https://github.com/boostorg/pfr)).
 *   Registration of field names with `VISITABLE_STRUCT` macro.
 *   User-defined casters.
 
@@ -256,12 +259,83 @@ auto serialized = value(visitable);
 // -> "1 null x"
 ```
 
-## Installation
+## Field Name Transformation
+
+cpp-yyjson supports compile-time field name transformation so that JSON keys can differ from C++ field names. This is achieved by specializing the `yyjson::field_name_rule<T>` trait.
+
+### Default behavior (identity)
+
+By default, no transformation is applied — JSON keys match C++ field names exactly:
+
+```cpp
+struct User
+{
+    int user_id;
+    std::string user_name;
+};
+
+// JSON: {"user_id": 1, "user_name": "Alice"}
+auto u = User{.user_id = 1, .user_name = "Alice"};
+auto serialized = yyjson::object(u);
+```
+
+### snake_case to camelCase
+
+Use `yyjson::snake_to_camel_transform` to convert snake_case fields to camelCase JSON keys:
+
+```cpp
+struct User
+{
+    int user_id;
+    std::string user_name;
+};
+
+template <>
+struct yyjson::field_name_rule<User>
+{
+    using type = yyjson::snake_to_camel_transform;
+};
+
+auto u = User{.user_id = 1, .user_name = "Alice"};
+auto serialized = yyjson::object(u);
+// -> {"userId": 1, "userName": "Alice"}
+
+// Deserialization also works with camelCase keys:
+auto restored = yyjson::cast<User>(serialized);
+// -> User{.user_id = 1, .user_name = "Alice"}
+```
+
+### Prefix and suffix stripping
+
+Strip common member variable prefixes (e.g., `m_`, `p_`) and/or suffixes (e.g., trailing `_`) before applying the transform:
+
+```cpp
+struct Config
+{
+    int m_first_name_;
+    std::string m_last_name_;
+};
+
+template <>
+struct yyjson::field_name_rule<Config>
+{
+    using type = yyjson::snake_to_camel_transform;
+    static constexpr std::array prefixes{"m_"};
+    static constexpr std::array suffixes{"_"};
+};
+
+auto c = Config{.m_first_name_ = 1, .m_last_name_ = "Smith"};
+auto serialized = yyjson::object(c);
+// m_first_name_ -> first_name_ (strip m_) -> first_name (strip _) -> firstName (camel)
+// -> {"firstName": 1, "lastName": "Smith"}
+```
+
+The transformation pipeline applies in order: **strip prefixes → strip suffixes → transform**. All processing is evaluated at compile time with zero runtime overhead.
 
 To use cpp-yyjson, the dependent packages are required to be installed. It is convenient to use [vcpkg](https://github.com/microsoft/vcpkg) to install the packages:
 
 ```bash
-$ ./vcpkg install yyjson fmt
+$ ./vcpkg install yyjson fmt boost-pfr
 ```
 
 Then add the path `include/cpp_yyjson.hpp` to the include directory of your project.
@@ -281,6 +355,12 @@ If you have installed cpp-yyjson via CMake, `find_package` command is enabled:
 find_package(cpp_yyjson CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE cpp_yyjson::cpp_yyjson)
 ```
+
+#### CMake options
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `CPPYYJSON_USE_STD_FORMAT` | `OFF` | Use `std::format` instead of `{fmt}`. Requires a compiler with full C++20 `<format>` support (e.g., MSVC 19.38+). |
 
 ## Benchmark
 
@@ -1306,9 +1386,9 @@ auto tpl_obj2 = cast<decltype(tpl_obj)>(json_obj);          // deserialize
 
 #### Automatic casting with compile-time reflection
 
-The compile-time reflection is supported to automatically convert C++ struct/class to JSON object and vice versa. This feature is provided by using [field-reflection](https://https://github.com/yosh-matsuda/field-reflection) and is included in this library.
+The compile-time reflection is supported to automatically convert C++ struct/class to JSON object and vice versa. This feature uses [boost::pfr](https://github.com/boostorg/pfr) for compile-time field name introspection.
 
-If a C++ struct/class satisfies the `field_reflection::field_namable` concept (see [field-reflection](https://https://github.com/yosh-matsuda/field-reflection)), it is possible to automatically convert from/to JSON objects with its field names and no need to write a caster definition or registration of field names with macros explained later.
+If a C++ struct/class satisfies the aggregate requirements of boost::pfr, it is possible to automatically convert from/to JSON objects with its field names and no need to write a caster definition or registration of field names with macros explained later.
 
 In practice, the following conditions are required for C++ types for automatic conversion:
 
@@ -1401,7 +1481,7 @@ struct yyjson::caster<X>
     static auto to_json(const X& x, Ts...)
     {
         // Convert X object to JSON string
-        return fmt::format("{} {} {}", x.a, (x.b ? fmt::format("{}", *x.b) : "null"), x.c);
+        return CPPYYJSON_FMT_NS::format("{} {} {}", x.a, (x.b ? CPPYYJSON_FMT_NS::format("{}", *x.b) : "null"), x.c);
     }
 };
 ```
@@ -1513,7 +1593,7 @@ for (auto i = 0; i < 1000; ++i) arr.emplace_back(nums);
 
 #### Support for {fmt} format
 
-The cpp-yyjson defines a specialization of `fmt::formatter` of the [{fmt}](https://github.com/fmtlib/fmt) library. The JSON classes are formattable as follows:
+The cpp-yyjson defines a specialization of `fmt::formatter` of the [{fmt}](https://github.com/fmtlib/fmt) library. The JSON classes are formattable as follows. Alternatively, when built with `CPPYYJSON_USE_STD_FORMAT=ON`, `std::formatter` specializations are provided instead:
 
 ```cpp
 using namespace yyjson;
