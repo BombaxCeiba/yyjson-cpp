@@ -53,7 +53,6 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
         *   ❌️ MSVC 19.43.34808.0
 *   [yyjson](https://github.com/ibireme/yyjson)
 *   [{fmt}](https://github.com/fmtlib/fmt)
-*   [Nameof C++](https://github.com/Neargye/nameof)
 
 ## Overview
 
@@ -262,7 +261,7 @@ auto serialized = value(visitable);
 To use cpp-yyjson, the dependent packages are required to be installed. It is convenient to use [vcpkg](https://github.com/microsoft/vcpkg) to install the packages:
 
 ```bash
-$ ./vcpkg install yyjson fmt nameof
+$ ./vcpkg install yyjson fmt
 ```
 
 Then add the path `include/cpp_yyjson.hpp` to the include directory of your project.
@@ -1385,7 +1384,7 @@ struct yyjson::caster<X>
             }
             return result;
         }
-        throw bad_cast(fmt::format("{} is not constructible from JSON", NAMEOF_TYPE(X)));
+        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", typeid(X).name()));
     }
 };
 ```

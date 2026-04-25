@@ -9,8 +9,6 @@ find_dependency(yyjson CONFIG REQUIRED)
 if(NOT CPPYYJSON_USE_STD_FORMAT)
   find_dependency(fmt 10.0.0 CONFIG REQUIRED)
 endif()
-find_dependency(nameof 0.10.0 CONFIG REQUIRED)
-
 # Propagate boost::pfr dependency
 if(NOT TARGET "@CPPYYJSON_PFR_TARGET@")
   find_dependency(boost_pfr CONFIG REQUIRED)

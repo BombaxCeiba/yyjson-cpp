@@ -38,7 +38,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install dependencies
-        run: vcpkg install yyjson fmt nameof gtest --triplet ${{ env.triplet }}
+        run: vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
@@ -89,7 +89,7 @@ jobs:
           brew install ninja
 
       - name: Install dependencies
-        run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt nameof gtest --triplet ${{ env.triplet }}
+        run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
@@ -144,7 +144,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/microsoft/vcpkg.git external/vcpkg
           ./external/vcpkg/bootstrap-vcpkg.sh
-          CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} ./external/vcpkg/vcpkg install yyjson fmt nameof gtest --triplet ${{ env.triplet }}
+          CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} ./external/vcpkg/vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |

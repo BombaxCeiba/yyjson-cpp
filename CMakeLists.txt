@@ -82,8 +82,6 @@ endif()
 if(NOT CPPYYJSON_USE_STD_FORMAT)
   find_and_link(fmt fmt::fmt-header-only VERSION 10.0.0)
 endif()
-find_and_link(nameof nameof::nameof VERSION 0.10.0)
-
 # boost::pfr: find_package with CPPYYJSON_PFR_TARGET fallback
 if(NOT CPPYYJSON_PFR_TARGET)
   if(NOT TARGET Boost::pfr OR CPPYYJSON_IS_TOPLEVEL_PROJECT)
