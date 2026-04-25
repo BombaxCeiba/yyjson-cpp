@@ -38,6 +38,47 @@ namespace yyjson
     inline constexpr auto yyjson_required_version = 0x000600;
     static_assert(YYJSON_VERSION_HEX >= yyjson_required_version, "Minimum required yyjson version is 0.6.0");
 
+    namespace detail
+    {
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+        template <typename T>
+        struct any_lref_base
+        {
+            template <typename U>
+            requires std::is_base_of_v<U, T>
+            constexpr operator U&() const&& noexcept;  // NOLINT
+            template <typename U>
+            requires std::is_base_of_v<U, T>
+            constexpr operator U&() const& noexcept;  // NOLINT
+        };
+
+        template <typename T>
+        struct any_rref_base
+        {
+            template <typename U>
+            requires std::is_base_of_v<U, T>
+            constexpr operator U() const&& noexcept;  // NOLINT
+        };
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+        template <typename T>
+        concept has_base = []() {
+            if constexpr (std::is_copy_constructible_v<T>)
+            {
+                return requires { T{std::declval<any_lref_base<T>>()}; };
+            }
+            else
+            {
+                return requires { T{std::declval<any_rref_base<T>>()}; };
+            }
+        }();
+    }  // namespace detail
+
     class bad_cast : public std::runtime_error
     {
         using std::runtime_error::runtime_error;
@@ -3108,13 +3149,15 @@ namespace yyjson
             }
 
             template <typename T>
-            concept to_json_with_reflection = []<std::size_t... Is>(std::index_sequence<Is...>) {
-                return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
-                    (std::declval<object_ref&>().emplace(boost::pfr::get_name<Is, T>(),
-                                                         boost::pfr::get<Is>(t)),
-                     ...);
-                };
-            }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
+            concept to_json_with_reflection = std::is_aggregate_v<T> &&
+                (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
+                []<std::size_t... Is>(std::index_sequence<Is...>) {
+                    return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
+                        (std::declval<object_ref&>().emplace(boost::pfr::get_name<Is, T>(),
+                                                             boost::pfr::get<Is>(t)),
+                         ...);
+                    };
+                }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
 
         }  // namespace detail
 
@@ -3717,7 +3760,7 @@ namespace yyjson
                 if (!alc.check_capacity({str, len}, read_flag))
                 {
                     throw std::runtime_error(
-                        CPPYYJSON_FMT_NS::format("Insufficient capacity in the pool allocator for {}", type_name<Alloc>()));
+                        CPPYYJSON_FMT_NS::format("Insufficient capacity in the pool allocator for {}", detail::type_name<Alloc>()));
                 }
             }
             result = yyjson_read_opts(str, len, to_underlying(read_flag), detail::get_allocator_pointer(alc), &err);
@@ -3893,7 +3936,7 @@ namespace yyjson
     };
 
     template <json_object Json, typename T>
-        requires std::is_aggregate_v<T>
+        requires std::is_aggregate_v<T> && (!std::is_array_v<T>) && (!detail::has_base<T>)
     constexpr bool all_fields_castable_impl()
     {
         return []<std::size_t... I>(std::index_sequence<I...>) {
@@ -3905,7 +3948,7 @@ namespace yyjson
 
     template <typename Json, typename T>
     concept all_fields_castable =
-        json_object<Json> && std::is_aggregate_v<T> && all_fields_castable_impl<Json, T>();
+        json_object<Json> && std::is_aggregate_v<T> && (!std::is_array_v<T>) && (!detail::has_base<T>) && all_fields_castable_impl<Json, T>();
 
     template <typename T>
     struct detail::default_caster
@@ -4232,7 +4275,7 @@ namespace yyjson
             auto result = std::optional<std::variant<Ts...>>();
             ((result = cast_no_except<Ts>(json)).has_value() || ...);
             if (result.has_value()) return *result;
-            throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", type_name<std::variant<Ts...>>()));
+            throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", detail::type_name<std::variant<Ts...>>()));
         }
 #if defined(__GNUC__) or defined(__clang__)
 #pragma GCC diagnostic pop
@@ -4309,7 +4352,7 @@ namespace yyjson
 
                     if (obj->size() > std::tuple_size_v<Tuple<Ts...>>)
                         throw bad_cast(CPPYYJSON_FMT_NS::format("the size of JSON object is greater than the size of {}",
-                                                   type_name<Tuple<Ts...>>()));
+                                                   detail::type_name<Tuple<Ts...>>()));
 
                     using indices = std::make_index_sequence<std::tuple_size_v<Tuple<Ts...>>>;
                     auto it = obj->begin();
@@ -4332,7 +4375,7 @@ namespace yyjson
 
                     if (arr->size() > std::tuple_size_v<Tuple<Ts...>>)
                         throw bad_cast(CPPYYJSON_FMT_NS::format("the size of JSON array is greater than the size of {}",
-                                                   type_name<Tuple<Ts...>>()));
+                                                   detail::type_name<Tuple<Ts...>>()));
 
                     using indices = std::make_index_sequence<std::tuple_size_v<Tuple<Ts...>>>;
                     auto it = arr->begin();
@@ -4344,7 +4387,7 @@ namespace yyjson
                 }
             }
 
-            throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", type_name<Tuple<Ts...>>()));
+            throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON", detail::type_name<Tuple<Ts...>>()));
         }
 
         template <detail::copy_string_args... Args>
@@ -4433,7 +4476,7 @@ struct std::formatter<T>
 
     auto format(const T& t, std::format_context& ctx) const -> std::format_context::iterator
     {
-        return std::format_to(ctx.out(), "{}", t.write());
+        return std::format_to(ctx.out(), "{}", std::string_view(t.write()));
     }
 };
 #else
