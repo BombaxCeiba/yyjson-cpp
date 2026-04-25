@@ -17,7 +17,15 @@
 #include <variant>
 #include <vector>
 
+#ifdef CPPYYJSON_USE_STD_FORMAT
+#include <format>
+namespace CPPYYJSON_FMT_NS_ALIAS = std;
+#define CPPYYJSON_FMT_NS CPPYYJSON_FMT_NS_ALIAS
+#else
 #include <fmt/format.h>
+namespace CPPYYJSON_FMT_NS_ALIAS = fmt;
+#define CPPYYJSON_FMT_NS CPPYYJSON_FMT_NS_ALIAS
+#endif
 #include <yyjson.h>
 #include "field_reflection.hpp"
 
