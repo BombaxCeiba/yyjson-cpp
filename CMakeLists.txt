@@ -47,6 +47,33 @@ find_and_link(yyjson yyjson::yyjson)
 find_and_link(fmt fmt::fmt-header-only VERSION 10.0.0)
 find_and_link(nameof nameof::nameof VERSION 0.10.0)
 
+# boost::pfr: find_package with CPPYYJSON_PFR_TARGET fallback
+if(NOT CPPYYJSON_PFR_TARGET)
+  if(NOT TARGET Boost::pfr OR CPPYYJSON_IS_TOPLEVEL_PROJECT)
+    find_package(boost_pfr CONFIG QUIET)
+    if(boost_pfr_FOUND)
+      set(CPPYYJSON_PFR_TARGET "Boost::pfr" CACHE STRING "CMake target for boost::pfr")
+    endif()
+  endif()
+endif()
+
+if(CPPYYJSON_PFR_TARGET)
+  if(NOT TARGET ${CPPYYJSON_PFR_TARGET})
+    message(FATAL_ERROR
+      "CPPYYJSON_PFR_TARGET is set to '${CPPYYJSON_PFR_TARGET}' "
+      "but this target does not exist. Please verify the target name."
+    )
+  endif()
+  target_link_libraries(${PROJECT_NAME} INTERFACE ${CPPYYJSON_PFR_TARGET})
+else()
+  message(FATAL_ERROR
+    "boost::pfr is required but was not found.\n"
+    "Options:\n"
+    "  1. Install boost::pfr (e.g., via vcpkg: vcpkg install boost-pfr)\n"
+    "  2. Set -DCPPYYJSON_PFR_TARGET=<target> to specify an existing CMake target"
+  )
+endif()
+
 # install
 if(CPPYYJSON_IS_TOPLEVEL_PROJECT)
   install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}_Targets)
