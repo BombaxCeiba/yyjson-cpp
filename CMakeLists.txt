@@ -54,6 +54,8 @@ if(NOT CPPYYJSON_PFR_TARGET)
     if(boost_pfr_FOUND)
       set(CPPYYJSON_PFR_TARGET "Boost::pfr" CACHE STRING "CMake target for boost::pfr")
     endif()
+  else()
+    set(CPPYYJSON_PFR_TARGET "Boost::pfr" CACHE STRING "CMake target for boost::pfr")
   endif()
 endif()
 

@@ -6,10 +6,10 @@ set(CPPYYJSON_PFR_TARGET "@CPPYYJSON_PFR_TARGET@")
 include(CMakeFindDependencyMacro)
 find_dependency(yyjson CONFIG REQUIRED)
 find_dependency(fmt 10.0.0 CONFIG REQUIRED)
-find_dependency(nameof CONFIG REQUIRED)
+find_dependency(nameof 0.10.0 CONFIG REQUIRED)
 
 # Propagate boost::pfr dependency
-if(NOT TARGET Boost::pfr)
+if(NOT TARGET "@CPPYYJSON_PFR_TARGET@")
   find_dependency(boost_pfr CONFIG REQUIRED)
 endif()
 
