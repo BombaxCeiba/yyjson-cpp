@@ -384,13 +384,49 @@ namespace yyjson
                 }
             }
             return name;
+#elif defined(__clang__)
+            // Clang (including clang-cl): use __PRETTY_FUNCTION__
+            // Standard Clang format: "... [T = int]"
+            // clang-cl format: "... type_name<int>(void)"
+            std::string_view name = __PRETTY_FUNCTION__;
+            auto eq_pos = name.find("T = ");
+            if (eq_pos != std::string_view::npos)
+            {
+                auto begin = eq_pos + 4;
+                auto end = begin;
+                int depth = 0;
+                while (end < name.size())
+                {
+                    if (name[end] == '<') ++depth;
+                    else if (name[end] == '>') --depth;
+                    else if (depth == 0 && (name[end] == ';' || name[end] == ']' || name[end] == ','))
+                        break;
+                    ++end;
+                }
+                return name.substr(begin, end - begin);
+            }
+            else
+            {
+                // clang-cl fallback: parse like MSVC __FUNCSIG__ format
+                auto begin = name.find("type_name<");
+                if (begin != std::string_view::npos)
+                {
+                    begin += 10;
+                    auto end = name.rfind(">(");
+                    if (end != std::string_view::npos && end > begin)
+                    {
+                        return name.substr(begin, end - begin);
+                    }
+                }
+            }
+            return name;
 #else
-            // GCC/Clang: __PRETTY_FUNCTION__ contains the type
+            // GCC: __PRETTY_FUNCTION__ contains "T = TypeName;"
             std::string_view name = __PRETTY_FUNCTION__;
             auto begin = name.find("T = ");
             if (begin != std::string_view::npos)
             {
-                begin += 4; // length of "T = "
+                begin += 4;
                 auto end = begin;
                 int depth = 0;
                 while (end < name.size())
