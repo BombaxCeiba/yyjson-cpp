@@ -19,18 +19,20 @@
 
 #ifdef CPPYYJSON_USE_STD_FORMAT
 #include <format>
-namespace CPPYYJSON_FMT_NS_ALIAS = std;
-#define CPPYYJSON_FMT_NS CPPYYJSON_FMT_NS_ALIAS
 #else
 #include <fmt/format.h>
-namespace CPPYYJSON_FMT_NS_ALIAS = fmt;
-#define CPPYYJSON_FMT_NS CPPYYJSON_FMT_NS_ALIAS
 #endif
 #include <yyjson.h>
 #include "field_reflection.hpp"
 
 namespace yyjson
 {
+#ifdef CPPYYJSON_USE_STD_FORMAT
+    namespace fmt_ns = std;
+#else
+    namespace fmt_ns = fmt;
+#endif
+#define CPPYYJSON_FMT_NS yyjson::fmt_ns
     inline constexpr auto yyjson_required_version = 0x000600;
     static_assert(YYJSON_VERSION_HEX >= yyjson_required_version, "Minimum required yyjson version is 0.6.0");
 
