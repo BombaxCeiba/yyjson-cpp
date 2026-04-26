@@ -332,6 +332,26 @@ auto serialized = yyjson::object(c);
 
 The transformation pipeline applies in order: **strip prefixes → strip suffixes → transform**. All processing is evaluated at compile time with zero runtime overhead.
 
+### Project-wide default transform
+
+To apply a default transform to all types without per-type specialization, define `CPPYYJSON_DEFAULT_TRANSFORM` before including the header:
+
+```cpp
+// Apply snake_to_camel to ALL types by default
+#define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::snake_to_camel_transform
+#include "cpp_yyjson.hpp"
+
+struct User
+{
+    int user_id;
+    std::string user_name;
+};
+
+// JSON: {"userId": 1, "userName": "Alice"} — no field_name_rule specialization needed
+```
+
+Per-type `field_name_rule<T>` specializations take priority over the macro default.
+
 To use cpp-yyjson, the dependent packages are required to be installed. It is convenient to use [vcpkg](https://github.com/microsoft/vcpkg) to install the packages:
 
 ```bash
