@@ -137,9 +137,8 @@ namespace yyjson
     };
 
     // Compile-time field name transform configuration.
-    // Users can define CPPYYJSON_DEFAULT_TRANSFORM before including this header
-    // to set a project-wide default (e.g., #define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::snake_to_camel_transform).
-    // Per-type overrides via field_name_rule<T> take priority.
+    // Users can define these macros before including this header to set project-wide defaults.
+    // Per-type overrides via field_name_rule<T> specializations take priority.
     #ifndef CPPYYJSON_DEFAULT_TRANSFORM
     #define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::identity_transform
     #endif
@@ -148,6 +147,12 @@ namespace yyjson
     struct field_name_rule
     {
         using type = CPPYYJSON_DEFAULT_TRANSFORM;
+    #ifdef CPPYYJSON_DEFAULT_PREFIXES
+        static constexpr auto prefixes = CPPYYJSON_DEFAULT_PREFIXES;
+    #endif
+    #ifdef CPPYYJSON_DEFAULT_SUFFIXES
+        static constexpr auto suffixes = CPPYYJSON_DEFAULT_SUFFIXES;
+    #endif
     };
 
     template <typename T = void>
