@@ -110,7 +110,6 @@ jobs:
       matrix:
         compiler:
           [
-            { c: "gcc-12", cxx: "g++-12", brewpkg: "", std_format: "OFF" },
             { c: "gcc-13", cxx: "g++-13", brewpkg: "", std_format: "ON" },
             { c: "gcc-14", cxx: "g++-14", brewpkg: "", std_format: "ON" },
             {

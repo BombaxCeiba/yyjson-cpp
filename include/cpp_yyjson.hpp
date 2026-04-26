@@ -4657,39 +4657,19 @@ requires requires(const T& t) {
     // clang-format on
 }
 #ifdef CPPYYJSON_USE_STD_FORMAT
-struct std::formatter<T>
+struct std::formatter<T> : std::formatter<std::string_view>
 {
-    constexpr auto parse(std::format_parse_context& ctx) -> std::format_parse_context::iterator
-    {
-        const auto i = ctx.begin();
-        if (i != ctx.end() && *i != '}')
-        {
-            throw std::format_error("invalid format");
-        }
-        return i;
-    }
-
     auto format(const T& t, std::format_context& ctx) const -> std::format_context::iterator
     {
-        return std::format_to(ctx.out(), "{}", std::string_view(t.write()));
+        return std::formatter<std::string_view>::format(t.write(), ctx);
     }
 };
 #else
-struct fmt::formatter<T>
+struct fmt::formatter<T> : fmt::formatter<std::string_view>
 {
-    constexpr auto parse(fmt::format_parse_context& ctx) -> fmt::format_parse_context::iterator
-    {
-        const auto i = ctx.begin();
-        if (i != ctx.end() && *i != '}')
-        {
-            throw fmt::format_error("invalid format");
-        }
-        return i;
-    }
-
     auto format(const T& t, fmt::format_context& ctx) const -> fmt::format_context::iterator
     {
-        return fmt::format_to(ctx.out(), "{}", t.write());
+        return fmt::formatter<std::string_view>::format(t.write(), ctx);
     }
 };
 #endif
