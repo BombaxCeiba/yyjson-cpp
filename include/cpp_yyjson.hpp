@@ -136,8 +136,22 @@ namespace yyjson
         }
     };
 
+    // Compile-time field name transform configuration.
+    // Users can define CPPYYJSON_DEFAULT_TRANSFORM before including this header
+    // to set a project-wide default (e.g., #define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::snake_to_camel_transform).
+    // Per-type overrides via field_name_rule<T> take priority.
+    #ifndef CPPYYJSON_DEFAULT_TRANSFORM
+    #define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::identity_transform
+    #endif
+
     template <typename T>
     struct field_name_rule
+    {
+        using type = CPPYYJSON_DEFAULT_TRANSFORM;
+    };
+
+    template <typename T = void>
+    struct default_name_transform
     {
         using type = identity_transform;
     };
@@ -187,7 +201,7 @@ namespace yyjson
         template <typename T>
         consteval auto strip_prefixes(fixed_string<128> name) -> fixed_string<128>
         {
-            if constexpr (requires { typename field_name_rule<T>::type; field_name_rule<T>::prefixes; })
+            if constexpr (requires { field_name_rule<T>::prefixes; })
             {
                 for (const auto& prefix : field_name_rule<T>::prefixes)
                 {
@@ -203,7 +217,7 @@ namespace yyjson
         template <typename T>
         consteval auto strip_suffixes(fixed_string<128> name) -> fixed_string<128>
         {
-            if constexpr (requires { typename field_name_rule<T>::type; field_name_rule<T>::suffixes; })
+            if constexpr (requires { field_name_rule<T>::suffixes; })
             {
                 for (const auto& suffix : field_name_rule<T>::suffixes)
                 {
@@ -227,8 +241,6 @@ namespace yyjson
         }
 
         // Pre-computed transformed field name stored as a compile-time constant.
-        // Using a variable template avoids the need to call transformed_name()
-        // (a consteval/immediate function) inside runtime lambdas.
         template <std::size_t I, typename T>
         inline constexpr auto transformed_name_v = transformed_name<I, T>();
 

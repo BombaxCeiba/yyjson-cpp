@@ -49,6 +49,11 @@ target_link_libraries("${PROJECT_NAME}_test_name_transform"
                       PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
 gtest_discover_tests("${PROJECT_NAME}_test_name_transform" DISCOVERY_MODE PRE_TEST)
 
+add_executable("${PROJECT_NAME}_test_default_transform" test_default_transform.cpp)
+target_link_libraries("${PROJECT_NAME}_test_default_transform"
+                      PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
+gtest_discover_tests("${PROJECT_NAME}_test_default_transform" DISCOVERY_MODE PRE_TEST)
+
 # benchmark
 if(CPPYYJSON_BUILD_BENCH)
   # Google benchmark
