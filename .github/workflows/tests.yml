@@ -38,7 +38,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install dependencies
-        run: vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
+        run: vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
@@ -56,20 +56,23 @@ jobs:
       matrix:
         compiler:
           [
-            { c: "gcc-12", cxx: "g++-12" },
-            { c: "gcc-13", cxx: "g++-13" },
-            { c: "gcc-14", cxx: "g++-14" },
+            { c: "gcc-12", cxx: "g++-12", std_format: "OFF" },
+            { c: "gcc-13", cxx: "g++-13", std_format: "ON" },
+            { c: "gcc-14", cxx: "g++-14", std_format: "ON" },
             {
               c: "clang-16",
               cxx: "clang++-16",
+              std_format: "OFF",
             },
             {
               c: "clang-17",
               cxx: "clang++-17",
+              std_format: "OFF",
             },
             {
               c: "clang-18",
               cxx: "clang++-18",
+              std_format: "ON",
             },
           ]
     name: Ubuntu - ${{ matrix.compiler.cxx }}
@@ -89,13 +92,13 @@ jobs:
           brew install ninja
 
       - name: Install dependencies
-        run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
+        run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           rm -rf ${{ github.workspace }}/build
-          cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
+          cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -DCPPYYJSON_USE_STD_FORMAT=${{ matrix.compiler.std_format }} -G "Ninja Multi-Config"
           cmake --build ${{ github.workspace }}/build --config Debug --clean-first
           ctest --test-dir ${{ github.workspace }}/build -C Debug
           cmake --build ${{ github.workspace }}/build --config Release --clean-first
@@ -107,23 +110,26 @@ jobs:
       matrix:
         compiler:
           [
-            { c: "gcc-12", cxx: "g++-12", brewpkg: "", },
-            { c: "gcc-13", cxx: "g++-13", brewpkg: "", },
-            { c: "gcc-14", cxx: "g++-14", brewpkg: "", },
+            { c: "gcc-12", cxx: "g++-12", brewpkg: "", std_format: "OFF" },
+            { c: "gcc-13", cxx: "g++-13", brewpkg: "", std_format: "ON" },
+            { c: "gcc-14", cxx: "g++-14", brewpkg: "", std_format: "ON" },
             {
               c: "$(brew --prefix llvm@16)/bin/clang",
               cxx: "$(brew --prefix llvm@16)/bin/clang++",
               brewpkg: "llvm@16",
+              std_format: "OFF",
             },
             {
               c: "$(brew --prefix llvm@17)/bin/clang",
               cxx: "$(brew --prefix llvm@17)/bin/clang++",
               brewpkg: "llvm@17",
+              std_format: "OFF",
             },
             {
               c: "$(brew --prefix llvm@18)/bin/clang",
               cxx: "$(brew --prefix llvm@18)/bin/clang++",
               brewpkg: "llvm@18",
+              std_format: "ON",
             },
           ]
     name: MacOS - ${{ matrix.compiler.cxx }}
@@ -144,12 +150,12 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/microsoft/vcpkg.git external/vcpkg
           ./external/vcpkg/bootstrap-vcpkg.sh
-          CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} ./external/vcpkg/vcpkg install yyjson fmt gtest --triplet ${{ env.triplet }}
+          CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} ./external/vcpkg/vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
           rm -rf ${{ github.workspace }}/build
-          cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=./external/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
+          cmake -B ${{ github.workspace }}/build -DCMAKE_TOOLCHAIN_FILE=./external/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -DCPPYYJSON_USE_STD_FORMAT=${{ matrix.compiler.std_format }} -G "Ninja Multi-Config"
           cmake --build ${{ github.workspace }}/build --config Debug --clean-first
           ctest --test-dir ${{ github.workspace }}/build -C Debug
           cmake --build ${{ github.workspace }}/build --config Release --clean-first
