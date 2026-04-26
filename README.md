@@ -334,11 +334,13 @@ The transformation pipeline applies in order: **strip prefixes → strip suffixe
 
 ### Project-wide default transform
 
-To apply a default transform to all types without per-type specialization, define `CPPYYJSON_DEFAULT_TRANSFORM` before including the header:
+To apply a default transform to all types without per-type specialization, define `CPPYYJSON_DEFAULT_TRANSFORM` before including the header. Optional `CPPYYJSON_DEFAULT_PREFIXES` and `CPPYYJSON_DEFAULT_SUFFIXES` macros strip member variable decorations:
 
 ```cpp
-// Apply snake_to_camel to ALL types by default
+// Apply snake_to_camel + prefix/suffix stripping to ALL types by default
 #define CPPYYJSON_DEFAULT_TRANSFORM ::yyjson::snake_to_camel_transform
+#define CPPYYJSON_DEFAULT_PREFIXES std::array<std::string_view, 2>{"m_", "p_"}
+#define CPPYYJSON_DEFAULT_SUFFIXES std::array<std::string_view, 1>{"_"}
 #include "cpp_yyjson.hpp"
 
 struct User
