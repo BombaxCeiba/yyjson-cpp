@@ -128,7 +128,7 @@ jobs:
               c: "$(brew --prefix llvm@18)/bin/clang",
               cxx: "$(brew --prefix llvm@18)/bin/clang++",
               brewpkg: "llvm@18",
-              std_format: "ON",
+              std_format: "OFF",
             },
           ]
     name: MacOS - ${{ matrix.compiler.cxx }}

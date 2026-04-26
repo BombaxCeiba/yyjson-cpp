@@ -53,3 +53,5 @@ build/
 **/.ccls-cache/
 **/.clangd/
 **/.cache/
+
+.planning/
