@@ -4196,16 +4196,19 @@ namespace yyjson
             static_assert(detail::check_no_ambiguous_names<T>(),
                 "Name transformation produces duplicate JSON keys. "
                 "Check your field_name_rule<T> specialization.");
-            // NOTE: Unknown JSON keys are silently ignored; duplicate keys use the last value.
-            // This matches the behavior of the previous field_reflection implementation.
-            for (auto&& [key, value] : obj)
-            {
-                [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                    ((key == detail::transformed_name_v<Is, T> &&
-                      (boost::pfr::get<Is>(result) = cast<std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>>(value), true))
-                     || ...);
-                }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
-            }
+            // Iterate C++ fields (compile-time known) as outer loop, look up JSON key for each.
+            // Uses yyjson C API binary search via operator[] — O(fields × log keys)
+            // instead of O(keys × fields) from iterating JSON keys as outer loop.
+            [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (([&] {
+                    using field_type = std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>;
+                    auto val = obj[detail::transformed_name_v<Is, T>];
+                    if (!val.is_null())
+                    {
+                        boost::pfr::get<Is>(result) = cast<field_type>(val);
+                    }
+                }()), ...);
+            }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
             return result;
         }
         template <json_array Json>
