@@ -98,7 +98,13 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          PKGS="yyjson gtest boost-pfr"
+          if [[ "${{ matrix.compiler.std_format }}" == "OFF" ]]; then
+            PKGS="$PKGS fmt"
+          fi
+          CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install $PKGS --triplet ${{ env.triplet }}
 
       - name: Build and test
         run: |
