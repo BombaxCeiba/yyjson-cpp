@@ -59,6 +59,7 @@ jobs:
             { c: "gcc-12", cxx: "g++-12", std_format: "OFF" },
             { c: "gcc-13", cxx: "g++-13", std_format: "ON" },
             { c: "gcc-14", cxx: "g++-14", std_format: "ON" },
+            { c: "gcc-15", cxx: "g++-15", std_format: "ON" },
             {
               c: "clang-16",
               cxx: "clang++-16",
