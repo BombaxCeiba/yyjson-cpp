@@ -92,14 +92,13 @@ jobs:
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           brew install ninja
           if [[ "${{ matrix.compiler.cxx }}" == "g++-15" ]]; then
-            brew install gcc@15
-            ln -sf "$(brew --prefix gcc@15)/bin/gcc-15" /usr/local/bin/gcc-15
-            ln -sf "$(brew --prefix gcc@15)/bin/g++-15" /usr/local/bin/g++-15
+            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            sudo apt-get update
+            sudo apt-get install -y gcc-15 g++-15
           fi
 
       - name: Install dependencies
         run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           PKGS="yyjson gtest boost-pfr"
           if [[ "${{ matrix.compiler.std_format }}" == "OFF" ]]; then
             PKGS="$PKGS fmt"
