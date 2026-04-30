@@ -4187,6 +4187,17 @@ namespace yyjson
             }
             return result;
         }
+        template <json_object Json, typename U, std::size_t I, typename TypeForNames>
+        static void assign_aggregate_field(U& result, const Json& obj)
+        {
+            using field_type = std::remove_cvref_t<decltype(boost::pfr::get<I>(result))>;
+            auto val = obj[detail::transformed_name_v<I, TypeForNames>];
+            if (!val.is_null())
+            {
+                boost::pfr::get<I>(result) = cast<field_type>(val);
+            }
+        }
+
         template <json_object Json>
         requires std::default_initializable<T> && (!visitable<T>) &&
                  (!std::ranges::input_range<T>) && all_fields_castable<Json, T>
@@ -4200,14 +4211,7 @@ namespace yyjson
             // Uses yyjson C API binary search via operator[] — O(fields × log keys)
             // instead of O(keys × fields) from iterating JSON keys as outer loop.
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-                (([&] {
-                    using field_type = std::remove_cvref_t<decltype(boost::pfr::get<Is>(result))>;
-                    auto val = obj[detail::transformed_name_v<Is, T>];
-                    if (!val.is_null())
-                    {
-                        boost::pfr::get<Is>(result) = cast<field_type>(val);
-                    }
-                }()), ...);
+                (assign_aggregate_field<Json, decltype(result), Is, T>(result, obj), ...);
             }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
             return result;
         }
