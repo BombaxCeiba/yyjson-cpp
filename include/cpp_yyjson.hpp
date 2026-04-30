@@ -4187,6 +4187,8 @@ namespace yyjson
             }
             return result;
         }
+        // GCC 14 workaround: nested lambda in fold expression triggers ICE (tsubst, cp/pt.cc:16443).
+        // Extracted to a named static helper to avoid the compiler bug.
         template <json_object Json, typename U, std::size_t I, typename TypeForNames>
         static void assign_aggregate_field(U& result, const Json& obj)
         {

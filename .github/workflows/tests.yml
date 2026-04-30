@@ -91,6 +91,11 @@ jobs:
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           brew install ninja
+          if [[ "${{ matrix.compiler.cxx }}" == "g++-15" ]]; then
+            brew install gcc@15
+            ln -sf "$(brew --prefix gcc@15)/bin/gcc-15" /usr/local/bin/gcc-15
+            ln -sf "$(brew --prefix gcc@15)/bin/g++-15" /usr/local/bin/g++-15
+          fi
 
       - name: Install dependencies
         run: CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
