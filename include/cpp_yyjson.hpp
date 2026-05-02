@@ -679,6 +679,20 @@ namespace yyjson
         }
 
         template <typename T>
+        struct is_optional : std::false_type {};
+        template <typename T>
+        struct is_optional<std::optional<T>> : std::true_type {};
+        template <typename T>
+        inline constexpr bool is_optional_v = is_optional<T>::value;
+
+        template <typename T>
+        struct is_variant : std::false_type {};
+        template <typename... Ts>
+        struct is_variant<std::variant<Ts...>> : std::true_type {};
+        template <typename T>
+        inline constexpr bool is_variant_v = is_variant<T>::value;
+
+        template <typename T>
         struct default_caster;
     }  // namespace detail
 
@@ -4322,52 +4336,86 @@ namespace yyjson
                     return from_json(*arr);
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
             }
-            // --- Null-constructible types ---
-            else if constexpr (std::constructible_from<T, std::nullptr_t>)
+            // --- Optional ---
+            else if constexpr (writer::detail::is_optional_v<T>)
             {
-                if (!json.is_null())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-                return T(nullptr);
+                if (json.is_null()) return T(std::nullopt);
+                return T(default_caster<typename T::value_type>::from_json(json));
             }
-            else if constexpr (std::constructible_from<T, std::nullopt_t>)
+            // --- Variant ---
+            else if constexpr (writer::detail::is_variant_v<T>)
             {
-                if (!json.is_null())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-                return T(std::nullopt);
+                if (json.is_null())
+                {
+                    T result;
+                    bool found = false;
+                    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                        auto try_alt = [&](auto I) {
+                            if (found) return;
+                            using Alt = std::variant_alternative_t<decltype(I)::value, T>;
+                            if constexpr (std::constructible_from<T, Alt> &&
+                                          (std::same_as<Alt, std::nullptr_t> ||
+                                           std::same_as<Alt, std::nullopt_t> ||
+                                           std::same_as<Alt, std::monostate>))
+                            {
+                                result = Alt();
+                                found = true;
+                            }
+                        };
+                        (try_alt(std::integral_constant<std::size_t, Is>{}), ...);
+                    }(std::make_index_sequence<std::variant_size_v<T>>());
+                    if (found) return result;
+                }
+                [&]<std::size_t... Is>(std::index_sequence<Is...>) -> T {
+                    T result;
+                    bool found = false;
+                    auto try_alt = [&](auto I) {
+                        if (found) return;
+                        using Alt = std::variant_alternative_t<decltype(I)::value, T>;
+                        if constexpr (std::same_as<Alt, std::nullptr_t> ||
+                                      std::same_as<Alt, std::nullopt_t> ||
+                                      std::same_as<Alt, std::monostate>)
+                            return;
+                        try
+                        {
+                            result = Alt(default_caster<Alt>::from_json(json));
+                            found = true;
+                        }
+                        catch (...)
+                        {
+                        }
+                    };
+                    (try_alt(std::integral_constant<std::size_t, Is>{}), ...);
+                    if (found) return result;
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON value", type_name<T>()));
+                }(std::make_index_sequence<std::variant_size_v<T>>());
             }
-            else if constexpr (std::constructible_from<T, std::monostate>)
-            {
-                if (!json.is_null())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-                return T(std::monostate());
-            }
-            // --- String-like types ---
-            else if constexpr (std::constructible_from<T, std::string_view>)
-            {
-                if (!json.is_string())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                return T(*json.as_string());
-            }
-            else if constexpr (std::constructible_from<T, std::string>)
-            {
-                if (!json.is_string())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                return T(std::string(*json.as_string()));
-            }
-            else if constexpr (std::constructible_from<T, const char*>)
-            {
-                if (!json.is_string())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                return T(json.as_string()->data());
-            }
-            // --- Generic fallback ---
+            // --- Fallback: runtime dispatch for null, string, generic constructible ---
             else
             {
                 if (json.is_null())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-                if (json.is_string())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                if (const auto vui = json.as_uint(); vui.has_value())
+                {
+                    if constexpr (std::constructible_from<T, std::nullptr_t>)
+                        return T(nullptr);
+                    else if constexpr (std::constructible_from<T, std::nullopt_t>)
+                        return T(std::nullopt);
+                    else if constexpr (std::constructible_from<T, std::monostate>)
+                        return T(std::monostate());
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                }
+                else if (json.is_string())
+                {
+                    if constexpr (std::constructible_from<T, std::string_view>)
+                        return T(*json.as_string());
+                    else if constexpr (std::constructible_from<T, std::string>)
+                        return T(std::string(*json.as_string()));
+                    else if constexpr (std::constructible_from<T, const char*>)
+                        return T(json.as_string()->data());
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                }
+                else if (const auto vui = json.as_uint(); vui.has_value())
                 {
 #ifdef _MSC_VER
                     if constexpr (requires { T(std::declval<std::uint64_t>()); })
