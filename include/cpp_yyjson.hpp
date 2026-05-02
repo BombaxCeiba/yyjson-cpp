@@ -4323,18 +4323,24 @@ namespace yyjson
                     return T(*vsi);
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
             }
-            // --- Complex types ---
-            else if constexpr (writer::detail::from_json_def_obj_defined<T>)
+            // --- String-like types ---
+            else if constexpr (std::constructible_from<T, std::string_view>)
             {
-                if (const auto obj = json.as_object(); obj.has_value())
-                    return from_json(*obj);
-                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON object", type_name<T>()));
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(*json.as_string());
             }
-            else if constexpr (writer::detail::from_json_def_arr_defined<T>)
+            else if constexpr (std::constructible_from<T, std::string>)
             {
-                if (const auto arr = json.as_array(); arr.has_value())
-                    return from_json(*arr);
-                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(std::string(*json.as_string()));
+            }
+            else if constexpr (std::constructible_from<T, const char*>)
+            {
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(json.as_string()->data());
             }
             // --- Optional ---
             else if constexpr (writer::detail::is_optional_v<T>)
@@ -4390,21 +4396,45 @@ namespace yyjson
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON value", type_name<T>()));
                 }(std::make_index_sequence<std::variant_size_v<T>>());
             }
-            // --- Fallback: runtime dispatch for null, string, generic constructible ---
+            // --- Null-like types ---
+            else if constexpr (std::constructible_from<T, std::nullptr_t>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(nullptr);
+            }
+            else if constexpr (std::constructible_from<T, std::nullopt_t>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(std::nullopt);
+            }
+            else if constexpr (std::constructible_from<T, std::monostate>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(std::monostate());
+            }
+            // --- Complex types ---
+            else if constexpr (writer::detail::from_json_def_obj_defined<T>)
+            {
+                if (const auto obj = json.as_object(); obj.has_value())
+                    return from_json(*obj);
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON object", type_name<T>()));
+            }
+            else if constexpr (writer::detail::from_json_def_arr_defined<T>)
+            {
+                if (const auto arr = json.as_array(); arr.has_value())
+                    return from_json(*arr);
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
+            }
+            // --- Fallback: generic constructible ---
             else
             {
                 if (json.is_null())
-                {
-                    if constexpr (std::constructible_from<T, std::nullptr_t>)
-                        return T(nullptr);
-                    else if constexpr (std::constructible_from<T, std::nullopt_t>)
-                        return T(std::nullopt);
-                    else if constexpr (std::constructible_from<T, std::monostate>)
-                        return T(std::monostate());
-                    else
-                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-                }
-                else if (json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                if (json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 {
                     if constexpr (std::constructible_from<T, std::string_view>)
                         return T(*json.as_string());
