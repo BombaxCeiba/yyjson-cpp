@@ -4435,17 +4435,7 @@ namespace yyjson
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
                 if (json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                {
-                    if constexpr (std::constructible_from<T, std::string_view>)
-                        return T(*json.as_string());
-                    else if constexpr (std::constructible_from<T, std::string>)
-                        return T(std::string(*json.as_string()));
-                    else if constexpr (std::constructible_from<T, const char*>)
-                        return T(json.as_string()->data());
-                    else
-                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-                }
-                else if (const auto vui = json.as_uint(); vui.has_value())
+                if (const auto vui = json.as_uint(); vui.has_value())
                 {
 #ifdef _MSC_VER
                     if constexpr (requires { T(std::declval<std::uint64_t>()); })
