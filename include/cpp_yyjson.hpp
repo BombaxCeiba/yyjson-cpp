@@ -1926,16 +1926,6 @@ namespace yyjson
                         return yyjson_mut_get_bool(base::val_);
                     return std::nullopt;
                 }
-                [[nodiscard]] std::optional<std::uint64_t> as_uint_strict() const noexcept
-                {
-                    if (is_uint()) return yyjson_mut_get_uint(base::val_);
-                    return std::nullopt;
-                }
-                [[nodiscard]] std::optional<std::int64_t> as_sint_strict() const noexcept
-                {
-                    if (is_sint()) return yyjson_mut_get_sint(base::val_);
-                    return std::nullopt;
-                }
                 [[nodiscard]] std::optional<std::uint64_t> as_uint() const noexcept
                 {
                     if (is_uint()) return yyjson_mut_get_uint(base::val_);
@@ -1946,6 +1936,7 @@ namespace yyjson
                     }
                     return std::nullopt;
                 }
+                // with checking overflow
                 [[nodiscard]] std::optional<std::int64_t> as_sint() const noexcept
                 {
                     if (is_sint()) return yyjson_mut_get_sint(base::val_);
@@ -3489,16 +3480,6 @@ namespace yyjson
                     return yyjson_get_bool(val_);
                 return std::nullopt;
             }
-            [[nodiscard]] std::optional<std::uint64_t> as_uint_strict() const noexcept
-            {
-                if (is_uint()) return yyjson_get_uint(val_);
-                return std::nullopt;
-            }
-            [[nodiscard]] std::optional<std::int64_t> as_sint_strict() const noexcept
-            {
-                if (is_sint()) return yyjson_get_sint(val_);
-                return std::nullopt;
-            }
             [[nodiscard]] std::optional<std::uint64_t> as_uint() const noexcept
             {
                 if (is_uint()) return yyjson_get_uint(val_);
@@ -3509,6 +3490,7 @@ namespace yyjson
                 }
                 return std::nullopt;
             }
+            // with checking overflow
             [[nodiscard]] std::optional<std::int64_t> as_sint() const noexcept
             {
                 if (is_sint()) return yyjson_get_sint(val_);
@@ -4304,29 +4286,29 @@ namespace yyjson
             }
             else if constexpr (std::signed_integral<T>)
             {
-                if (const auto vsi = json.as_sint_strict(); vsi.has_value())
+                if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
                     if (*vsi >= std::numeric_limits<T>::min() && *vsi <= std::numeric_limits<T>::max())
                         return static_cast<T>(*vsi);
                     throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
                                                type_name<T>(), *vsi));
                 }
-                // SUBTYPE_UINT means value > INT64_MAX, cannot fit any signed type
-                if (json.is_uint())
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer",
-                                               type_name<T>()));
+                // uint means value > INT64_MAX, cannot fit any signed type
+                if (const auto vui = json.as_uint(); vui.has_value())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               type_name<T>(), *vui));
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
             }
             else if constexpr (std::unsigned_integral<T>)
             {
-                if (const auto vui = json.as_uint_strict(); vui.has_value())
+                if (const auto vui = json.as_uint(); vui.has_value())
                 {
                     if (*vui <= std::numeric_limits<T>::max())
                         return static_cast<T>(*vui);
                     throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
                                                type_name<T>(), *vui));
                 }
-                if (const auto vsi = json.as_sint_strict(); vsi.has_value())
+                if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
                     if (*vsi >= 0 && static_cast<std::uint64_t>(*vsi) <= std::numeric_limits<T>::max())
                         return static_cast<T>(*vsi);
@@ -4339,9 +4321,9 @@ namespace yyjson
             {
                 if (json.is_real())
                     return T(*json.as_real());
-                if (const auto vui = json.as_uint_strict(); vui.has_value())
+                if (const auto vui = json.as_uint(); vui.has_value())
                     return T(*vui);
-                if (const auto vsi = json.as_sint_strict(); vsi.has_value())
+                if (const auto vsi = json.as_sint(); vsi.has_value())
                     return T(*vsi);
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
             }
