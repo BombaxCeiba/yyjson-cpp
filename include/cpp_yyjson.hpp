@@ -4277,6 +4277,21 @@ namespace yyjson
         requires (std::same_as<reader::const_value_ref, Json> || writer::detail::base_of_const_value<Json>)
         static auto from_json(const Json& json)
         {
+            // --- Object/Array: runtime-first with compile-time guard ---
+            // These must be tried first so that JSON objects/arrays are routed to
+            // the structured deserializer, but if the JSON value is NOT an object
+            // or array, execution falls through to the type-based dispatch below.
+            if constexpr (writer::detail::from_json_def_obj_defined<T>)
+            {
+                if (const auto obj = json.as_object(); obj.has_value())
+                    return from_json(*obj);
+            }
+            if constexpr (writer::detail::from_json_def_arr_defined<T>)
+            {
+                if (const auto arr = json.as_array(); arr.has_value())
+                    return from_json(*arr);
+            }
+
             // --- Scalar types: compile-time dispatch ---
             if constexpr (std::same_as<T, bool>)
             {
@@ -4418,19 +4433,6 @@ namespace yyjson
                 if (!json.is_null())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
                 return T(std::monostate());
-            }
-            // --- Complex types ---
-            else if constexpr (writer::detail::from_json_def_obj_defined<T>)
-            {
-                if (const auto obj = json.as_object(); obj.has_value())
-                    return from_json(*obj);
-                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON object", type_name<T>()));
-            }
-            else if constexpr (writer::detail::from_json_def_arr_defined<T>)
-            {
-                if (const auto arr = json.as_array(); arr.has_value())
-                    return from_json(*arr);
-                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
             }
             // --- Fallback: generic constructible ---
             else
