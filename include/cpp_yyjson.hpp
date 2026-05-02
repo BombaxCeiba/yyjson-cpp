@@ -4259,126 +4259,160 @@ namespace yyjson
         requires (std::same_as<reader::const_value_ref, Json> || writer::detail::base_of_const_value<Json>)
         static auto from_json(const Json& json)
         {
-            if (const auto obj = json.as_object(); obj.has_value())
+            // --- Scalar types: compile-time dispatch ---
+            if constexpr (std::same_as<T, bool>)
             {
-                if constexpr (writer::detail::from_json_def_obj_defined<T>)
+                if (json.is_bool())
+                    return *json.as_bool();
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON bool", type_name<T>()));
+            }
+            else if constexpr (std::signed_integral<T>)
+            {
+                if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
-                    return from_json(*obj);
+                    if (*vsi >= std::numeric_limits<T>::min() && *vsi <= std::numeric_limits<T>::max())
+                        return static_cast<T>(*vsi);
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               type_name<T>(), *vsi));
                 }
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON object", type_name<T>()));
+                // uint means value > INT64_MAX, cannot fit any signed type
+                if (const auto vui = json.as_uint(); vui.has_value())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
+                                               type_name<T>(), *vui));
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
             }
-            else if (const auto arr = json.as_array(); arr.has_value())
+            else if constexpr (std::unsigned_integral<T>)
             {
-                if constexpr (writer::detail::from_json_def_arr_defined<T>)
-                {
-                    return from_json(*arr);
-                }
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
-            }
-            else if (json.is_null())
-            {
-                if constexpr (std::constructible_from<T, std::nullptr_t>)
-                {
-                    return T(nullptr);
-                }
-                else if constexpr (std::constructible_from<T, std::nullopt_t>)
-                    return T(std::nullopt);
-                else if constexpr (std::constructible_from<T, std::monostate>)
-                    return T(std::monostate());
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
-            }
-            else if (json.is_bool())
-            {
-#ifdef _MSC_VER
-                if constexpr (requires { T(std::declval<bool>()); })
-#else
-                if constexpr (std::constructible_from<T, bool>)
-#endif
-                    return T(*json.as_bool());
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON bool", type_name<T>()));
-            }
-            else if (json.is_real())
-            {
-#ifdef _MSC_VER
-                if constexpr (requires { T(std::declval<double>()); })
-#else
-                if constexpr (std::constructible_from<T, double>)
-#endif
-                {
-                    return T(*json.as_real());
-                }
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
-            }
-            else if (json.is_string())
-            {
-                if constexpr (std::constructible_from<T, std::string_view>)
-                    return T(*json.as_string());
-                else if constexpr (std::constructible_from<T, std::string>)
-                    return T(std::string(*json.as_string()));
-                else if constexpr (std::constructible_from<T, const char*>)
-                    return T(json.as_string()->data());
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
-            }
-            else if (const auto vui = json.as_uint(); vui.has_value())
-            {
-                if constexpr (std::integral<T>)
+                if (const auto vui = json.as_uint(); vui.has_value())
                 {
                     if (*vui <= std::numeric_limits<T>::max())
-                    {
                         return static_cast<T>(*vui);
-                    }
                     throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
                                                type_name<T>(), *vui));
                 }
-#ifdef _MSC_VER
-                else if constexpr (requires { T(std::declval<std::uint64_t>()); })
-#else
-                else if constexpr (std::constructible_from<T, std::uint64_t>)
-#endif
-                {
-                    return T(*vui);
-                }
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
-            }
-            else if (const auto vsi = json.as_sint(); vsi.has_value())
-            {
-                if constexpr (std::unsigned_integral<T>)
+                if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
                     if (*vsi >= 0 && static_cast<std::uint64_t>(*vsi) <= std::numeric_limits<T>::max())
-                    {
                         return static_cast<T>(*vsi);
-                    }
                     throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
                                                type_name<T>(), *vsi));
                 }
-                else if constexpr (std::signed_integral<T>)
-                {
-                    if (*vsi >= std::numeric_limits<T>::min() && *vsi <= std::numeric_limits<T>::max())
-                    {
-                        return static_cast<T>(*vsi);
-                    }
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("overflow detected: {} is not constructible from JSON integer {}",
-                                               type_name<T>(), *vsi));
-                }
-#ifdef _MSC_VER
-                else if constexpr (requires { T(std::declval<std::int64_t>()); })
-#else
-                else if constexpr (std::constructible_from<T, std::int64_t>)
-#endif
-                {
-                    return T(*vsi);
-                }
-                else
-                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
             }
-            throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from raw json", type_name<T>()));
+            else if constexpr (std::floating_point<T>)
+            {
+                if (json.is_real())
+                    return T(*json.as_real());
+                if (const auto vui = json.as_uint(); vui.has_value())
+                    return T(*vui);
+                if (const auto vsi = json.as_sint(); vsi.has_value())
+                    return T(*vsi);
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
+            }
+            // --- Complex types ---
+            else if constexpr (writer::detail::from_json_def_obj_defined<T>)
+            {
+                if (const auto obj = json.as_object(); obj.has_value())
+                    return from_json(*obj);
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON object", type_name<T>()));
+            }
+            else if constexpr (writer::detail::from_json_def_arr_defined<T>)
+            {
+                if (const auto arr = json.as_array(); arr.has_value())
+                    return from_json(*arr);
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON array", type_name<T>()));
+            }
+            // --- Null-constructible types ---
+            else if constexpr (std::constructible_from<T, std::nullptr_t>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(nullptr);
+            }
+            else if constexpr (std::constructible_from<T, std::nullopt_t>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(std::nullopt);
+            }
+            else if constexpr (std::constructible_from<T, std::monostate>)
+            {
+                if (!json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                return T(std::monostate());
+            }
+            // --- String-like types ---
+            else if constexpr (std::constructible_from<T, std::string_view>)
+            {
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(*json.as_string());
+            }
+            else if constexpr (std::constructible_from<T, std::string>)
+            {
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(std::string(*json.as_string()));
+            }
+            else if constexpr (std::constructible_from<T, const char*>)
+            {
+                if (!json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                return T(json.as_string()->data());
+            }
+            // --- Generic fallback ---
+            else
+            {
+                if (json.is_null())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
+                if (json.is_string())
+                    throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
+                if (const auto vui = json.as_uint(); vui.has_value())
+                {
+#ifdef _MSC_VER
+                    if constexpr (requires { T(std::declval<std::uint64_t>()); })
+#else
+                    if constexpr (std::constructible_from<T, std::uint64_t>)
+#endif
+                        return T(*vui);
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
+                }
+                else if (const auto vsi = json.as_sint(); vsi.has_value())
+                {
+#ifdef _MSC_VER
+                    if constexpr (requires { T(std::declval<std::int64_t>()); })
+#else
+                    if constexpr (std::constructible_from<T, std::int64_t>)
+#endif
+                        return T(*vsi);
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
+                }
+                else if (json.is_bool())
+                {
+#ifdef _MSC_VER
+                    if constexpr (requires { T(std::declval<bool>()); })
+#else
+                    if constexpr (std::constructible_from<T, bool>)
+#endif
+                        return T(*json.as_bool());
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON bool", type_name<T>()));
+                }
+                else if (json.is_real())
+                {
+#ifdef _MSC_VER
+                    if constexpr (requires { T(std::declval<double>()); })
+#else
+                    if constexpr (std::constructible_from<T, double>)
+#endif
+                        return T(*json.as_real());
+                    else
+                        throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
+                }
+                throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from raw json", type_name<T>()));
+            }
         }
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
