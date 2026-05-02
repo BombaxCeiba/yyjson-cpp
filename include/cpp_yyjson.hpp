@@ -1926,10 +1926,9 @@ namespace yyjson
                 [[nodiscard]] std::optional<std::int64_t> as_sint() const noexcept
                 {
                     if (is_sint()) return yyjson_mut_get_sint(base::val_);
-                    if (is_uint()) [[likely]]
+                    if (is_uint()) [[unlikely]]
                     {
-                        auto ret = yyjson_mut_get_uint(base::val_);
-                        if (ret <= std::numeric_limits<std::int64_t>::max()) return ret;
+                        return static_cast<std::int64_t>(yyjson_mut_get_uint(base::val_));
                     }
                     return std::nullopt;
                 }
@@ -3479,10 +3478,9 @@ namespace yyjson
             [[nodiscard]] std::optional<std::int64_t> as_sint() const noexcept
             {
                 if (is_sint()) return yyjson_get_sint(val_);
-                if (is_uint()) [[likely]]
+                if (is_uint()) [[unlikely]]
                 {
-                    auto ret = yyjson_get_uint(val_);
-                    if (ret <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) return ret;
+                    return static_cast<std::int64_t>(yyjson_get_uint(val_));
                 }
                 return std::nullopt;
             }
