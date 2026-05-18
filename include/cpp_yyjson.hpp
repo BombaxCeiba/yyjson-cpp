@@ -4557,6 +4557,21 @@ namespace yyjson
                 if (t.has_value()) v = std::move(*t);
             }
         }
+
+        template <detail::copy_string_args... Ts>
+        requires requires(T t) { caster<T>::to_json(t); }
+        static auto to_json(const std::optional<T>& t, Ts...)
+        {
+            if (t.has_value()) return caster<T>::to_json(*t);
+            return nullptr;
+        }
+        template <detail::copy_string_args... Ts>
+        requires requires(T t) { caster<T>::to_json(std::move(t)); }
+        static auto to_json(std::optional<T>&& t, Ts...)
+        {
+            if (t.has_value()) return caster<T>::to_json(std::move(*t));
+            return nullptr;
+        }
     };
 
     template <>

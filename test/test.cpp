@@ -2194,6 +2194,24 @@ struct Z : public X
 
 VISITABLE_STRUCT(Z, a, b, c);
 
+struct InnerWithOptional
+{
+    std::string severity;
+    std::string code;
+    std::string message;
+    std::optional<std::string> path;
+    std::optional<std::int64_t> provider_code;
+    bool operator==(const InnerWithOptional&) const = default;
+};
+
+struct OuterWithNestedOptional
+{
+    std::int32_t version;
+    std::string status;
+    std::vector<InnerWithOptional> items;
+    bool operator==(const OuterWithNestedOptional&) const = default;
+};
+
 TEST(Writer, PredefinedCaster)
 {
     using namespace yyjson::writer;  // NOLINT
@@ -2495,6 +2513,16 @@ TEST(Writer, PredefinedCaster)
     auto arr4 = array(z_vec1);
     auto z_vec2 = cast<std::vector<Z>>(arr4);
     EXPECT_EQ(z_vec1, z_vec2);
+
+    // Regression: nested aggregate struct with optional fields
+    auto inner1 = InnerWithOptional{.severity = "error", .code = "E001", .message = "fail", .path = "/tmp/file", .provider_code = 42};
+    auto inner2 = InnerWithOptional{.severity = "warning", .code = "W001", .message = "check", .path = std::nullopt, .provider_code = std::nullopt};
+    auto outer = OuterWithNestedOptional{.version = 1, .status = "partial", .items = {inner1, inner2}};
+    auto outer_obj = object(outer);
+    auto outer2 = cast<OuterWithNestedOptional>(outer_obj);
+    EXPECT_EQ(outer.version, outer2.version);
+    EXPECT_EQ(outer.status, outer2.status);
+    EXPECT_EQ(outer.items, outer2.items);
 }
 
 TEST(Reader, Allocator)
