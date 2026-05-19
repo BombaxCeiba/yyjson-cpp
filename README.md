@@ -28,6 +28,11 @@ Ultra-fast and intuitive C++ JSON reader/writer with yyjson backend.
 
 ## Features
 
+> **Note:** This is a fork of [cpp-yyjson](https://github.com/yosh-matsuda/cpp-yyjson) by Yoshiki Matsuda. Key differences from the upstream:
+> - Removed `name_of` dependency; compile-time reflection migrated to [boost::pfr](https://github.com/boostorg/pfr)
+> - Optional formatting backend: choose [{fmt}](https://github.com/fmtlib/fmt) or `std::format` via CMake option
+> - Customizable field name transformation rules (prefix/suffix stripping + case conversion)
+
 *   Header-only
 *   C++20 range adaption
 *   STL-like accessors
