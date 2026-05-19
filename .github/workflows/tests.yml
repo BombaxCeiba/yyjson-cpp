@@ -21,7 +21,7 @@ jobs:
         compiler:
           [
             { c: "clang-cl", cxx: "clang-cl" },
-            # { c: "cl", cxx: "cl" },
+            { c: "cl", cxx: "cl" },
           ]
     name: Windows - ${{ matrix.compiler.cxx }}
     runs-on: windows-latest
