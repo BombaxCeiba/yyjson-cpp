@@ -605,7 +605,7 @@ namespace yyjson
         template <typename T>
         std::string_view type_name()
         {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
             // MSVC: __FUNCSIG__ contains "type_name<ActualType>()"
             std::string_view name = __FUNCSIG__;
             auto begin = name.find("type_name<");
@@ -739,7 +739,7 @@ namespace yyjson
                         {default_caster<T>::from_json(v)} -> std::same_as<T>;
                     };  // clang-format on
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
             namespace _msvc_check { constexpr void _value_ref(const abstract_value_ref&) {} }
             template <class Derived>
             concept base_of_value_ref = requires(Derived d) { _msvc_check::_value_ref(d); };
@@ -809,7 +809,7 @@ namespace yyjson
             template <typename DocType>
             class object_iter;
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
             namespace _msvc_check {
                 template <typename X> constexpr void _value(const abstract_value<X>&) {}
                 template <typename X> constexpr void _const_value(const const_value_base<X>&) {}
@@ -996,7 +996,7 @@ namespace yyjson
                     doc.create_array(std::forward<T>(t));
                     doc.create_array(std::forward<T>(t), copy_string);
                 };
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
             template <typename T, typename DocType = mutable_document>
             concept create_object_callable =
                 (!base_of_value<std::remove_cvref_t<T>>) &&
@@ -1299,7 +1299,7 @@ namespace yyjson
                     // empty object
                     return yyjson_mut_obj(ptrs->self);
                 }
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
                 template <typename T, copy_string_args... Ts>
                 requires (!create_object_callable<T>) && convertible_to_create_object_callable<T>
 #else
@@ -1409,7 +1409,7 @@ namespace yyjson
                     }
                     return result;
                 }
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
                 template <typename T, copy_string_args... Ts>
                 requires create_object_callable<T>
                 auto create_object(T&& t, Ts... ts) noexcept
@@ -3097,7 +3097,7 @@ namespace yyjson
                 using base = const_object_base<DocType>;
                 using base::base;
 
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
             public:
                 // MSVC does not properly inherit constrained constructors via using base::base.
                 template <typename T, copy_string_args... Ts>
@@ -4549,7 +4549,7 @@ namespace yyjson
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 if (const auto vui = json.as_uint(); vui.has_value())
                 {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
                     if constexpr (requires { T(std::declval<std::uint64_t>()); })
 #else
                     if constexpr (std::constructible_from<T, std::uint64_t>)
@@ -4560,7 +4560,7 @@ namespace yyjson
                 }
                 else if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
                     if constexpr (requires { T(std::declval<std::int64_t>()); })
 #else
                     if constexpr (std::constructible_from<T, std::int64_t>)
@@ -4571,7 +4571,7 @@ namespace yyjson
                 }
                 else if (json.is_bool())
                 {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
                     if constexpr (requires { T(std::declval<bool>()); })
 #else
                     if constexpr (std::constructible_from<T, bool>)
@@ -4582,7 +4582,7 @@ namespace yyjson
                 }
                 else if (json.is_real())
                 {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
 #pragma warning(push)
 #pragma warning(disable: 4244)
                     if constexpr (requires { T(std::declval<double>()); })
@@ -4636,7 +4636,7 @@ namespace yyjson
     template <typename T>
     struct caster<std::optional<T>>
     {
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
         template <detail::copy_string_args... Ts>
         requires writer::detail::create_value_callable<T>
         static auto to_json(writer::value_ref& v, const std::optional<T>& t, Ts...)
@@ -4659,7 +4659,7 @@ namespace yyjson
                 if (t.has_value()) v = *t;
             }
         }
-#if defined(_MSC_VER) && !defined(__clang__)
+#if 0
         template <detail::copy_string_args... Ts>
         requires writer::detail::create_value_callable<T>
         static auto to_json(writer::value_ref& v, std::optional<T>&& t, Ts...)
