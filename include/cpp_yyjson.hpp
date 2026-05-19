@@ -1001,10 +1001,11 @@ namespace yyjson
             concept create_object_callable =
                 (!base_of_value<std::remove_cvref_t<T>>) &&
                 (!reader::detail::base_of_value_ref<std::remove_cvref_t<T>>) &&
+                (!base_of_array<std::remove_cvref_t<T>>) &&
+                (!yyjson::detail::has_base<std::remove_cvref_t<T>>) &&
                 std::is_aggregate_v<std::remove_cvref_t<T>> &&
-                (!std::is_array_v<std::remove_cvref_t<T>>);
-
-            // MSVC diagnostic: verify concept works for aggregates
+                (!std::is_array_v<std::remove_cvref_t<T>>) &&
+                (boost::pfr::tuple_size_v<std::remove_cvref_t<T>> > 0);
 #else
             template <typename T, typename DocType = mutable_document>
             concept create_object_callable =
@@ -4635,12 +4636,18 @@ namespace yyjson
     template <typename T>
     struct caster<std::optional<T>>
     {
+#ifdef _MSC_VER
+        template <detail::copy_string_args... Ts>
+        requires writer::detail::create_value_callable<T>
+        static auto to_json(writer::value_ref& v, const std::optional<T>& t, Ts...)
+#else
         template <detail::copy_string_args... Ts>
         requires requires(writer::value_ref& v, T t) {
             v = t;
             v = std::pair(t, copy_string);
         }
         static auto to_json(writer::value_ref& v, const std::optional<T>& t, Ts...)
+#endif
         {
             constexpr auto copy = (sizeof...(Ts) != 0);
             if constexpr (copy)
@@ -4652,12 +4659,18 @@ namespace yyjson
                 if (t.has_value()) v = *t;
             }
         }
+#ifdef _MSC_VER
+        template <detail::copy_string_args... Ts>
+        requires writer::detail::create_value_callable<T>
+        static auto to_json(writer::value_ref& v, std::optional<T>&& t, Ts...)
+#else
         template <detail::copy_string_args... Ts>
         requires requires(writer::value_ref& v, T t) {
             v = t;
             v = std::pair(t, copy_string);
         }
         static auto to_json(writer::value_ref& v, std::optional<T>&& t, Ts...)
+#endif
         {
             constexpr auto copy = (sizeof...(Ts) != 0);
             if constexpr (copy)
