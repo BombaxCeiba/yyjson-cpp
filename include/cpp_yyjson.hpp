@@ -981,8 +981,15 @@ namespace yyjson
                 };
 
             template <typename T>
+            concept create_value_from_caster =
+                (!base_of_value<T>) && (!reader::detail::base_of_value_ref<T>) &&
+                (!create_primitive_callable<T>) && (!create_array_callable<T>) && (!create_object_callable<T>) &&
+                (to_json_val_usr<T> || to_json_val_def<T>);
+
+            template <typename T>
             concept create_value_callable =
-                create_primitive_callable<T> || create_array_callable<T> || create_object_callable<T>;
+                create_primitive_callable<T> || create_array_callable<T> || create_object_callable<T> ||
+                create_value_from_caster<T>;
 
             template <typename T>
             concept convertible_to_create_primitive_callable = requires(T&& t) {  // clang-format off
@@ -1390,7 +1397,6 @@ namespace yyjson
                 {
                     return create_object(std::forward<T>(t), ts...);
                 }
-
                 template <create_value_callable T, copy_string_args... Ts>
                 auto set_value(yyjson_mut_val* dst, T&& t, Ts... ts) noexcept
                 {
@@ -2291,6 +2297,24 @@ namespace yyjson
                 using base = const_array_base<DocType>;
                 using base::base;
 
+                template <create_value_from_caster T, copy_string_args... Ts>
+                auto array_append(T&& t, Ts... ts) noexcept
+                {
+                    auto prev = static_cast<yyjson_mut_val*>(base::val_->uni.ptr);
+                    auto vr = value_ref(base::doc_, yyjson_mut_null(base::doc_.ptrs->self));
+                    to_json_wrapper(vr, std::forward<T>(t), ts...);
+                    [[maybe_unused]] auto success = yyjson_mut_arr_append(base::val_, vr.val_);
+                    assert(success);
+
+                    auto iter = base::array_iter_begin();
+                    if (iter.max > 1)
+                    {
+                        iter.cur = prev;
+                        iter.idx = iter.max - 1;
+                    }
+
+                    return iter;
+                }
                 template <create_value_callable T, copy_string_args... Ts>
                 auto array_append(T&& t, Ts... ts) noexcept
                 {
@@ -3020,6 +3044,26 @@ namespace yyjson
                 using base = const_object_base<DocType>;
                 using base::base;
 
+                template <typename Key, create_value_from_caster T, copy_string_args... Ts>
+                requires key_type<std::remove_cvref_t<Key&&>>
+                auto object_append(Key&& key, T&& t, Ts... ts) noexcept
+                {
+                    auto prev = static_cast<yyjson_mut_val*>(base::val_->uni.ptr);
+                    const auto add_key = base::doc_.create_primitive(std::forward<Key>(key), ts...);
+                    auto vr = value_ref(base::doc_, yyjson_mut_null(base::doc_.ptrs->self));
+                    to_json_wrapper(vr, std::forward<T>(t), ts...);
+                    [[maybe_unused]] auto success = yyjson_mut_obj_add(base::val_, add_key, vr.val_);
+                    assert(success);
+
+                    auto iter = base::object_iter_begin();
+                    if (iter.max > 1)
+                    {
+                        iter.cur = prev;
+                        iter.idx = iter.max - 1;
+                    }
+
+                    return iter;
+                }
                 template <typename Key, create_value_callable T, copy_string_args... Ts>
                 requires key_type<std::remove_cvref_t<Key&&>>
                 auto object_append(Key&& key, T&& t, Ts... ts) noexcept

@@ -2212,6 +2212,15 @@ struct OuterWithNestedOptional
     bool operator==(const OuterWithNestedOptional&) const = default;
 };
 
+struct AggregateWithDirectOptional
+{
+    std::string name;
+    std::optional<std::string> nickname;
+    std::int32_t age;
+    std::optional<std::int32_t> score;
+    bool operator==(const AggregateWithDirectOptional&) const = default;
+};
+
 TEST(Writer, PredefinedCaster)
 {
     using namespace yyjson::writer;  // NOLINT
@@ -2524,7 +2533,24 @@ TEST(Writer, PredefinedCaster)
     EXPECT_EQ(outer.status, outer2.status);
     EXPECT_EQ(outer.items, outer2.items);
 
-    // Regression: std::monostate direct deserialization from JSON null
+    // Regression: aggregate with direct optional fields
+    {
+        auto dto1 = AggregateWithDirectOptional{.name = "Alice", .nickname = "ali", .age = 30, .score = 42};
+        auto obj1 = object(dto1);
+        auto dto1b = cast<AggregateWithDirectOptional>(obj1);
+        EXPECT_EQ(dto1, dto1b);
+
+        auto dto2 = AggregateWithDirectOptional{.name = "Bob", .nickname = std::nullopt, .age = 25, .score = std::nullopt};
+        auto obj2 = object(dto2);
+        auto dto2b = cast<AggregateWithDirectOptional>(obj2);
+        EXPECT_EQ(dto2, dto2b);
+
+        // Verify null optional produces JSON null
+        EXPECT_TRUE(obj2["nickname"].is_null());
+        EXPECT_TRUE(obj2["score"].is_null());
+    }
+
+// Regression: std::monostate direct deserialization from JSON null
     {
         auto null_val = value(nullptr);
         auto ms = cast<std::monostate>(null_val);
