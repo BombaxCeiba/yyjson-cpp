@@ -3398,16 +3398,26 @@ namespace yyjson
                 return std::nullopt;
             }
 
+            template <typename T, std::size_t... Is>
+            constexpr bool all_fields_create_value_callable_fold =
+                (create_value_callable<boost::pfr::tuple_element_t<Is, T>> && ...);
+
+            template <typename T, typename>
+            struct all_fields_create_value_callable_impl : std::false_type {};
+
+            template <typename T, std::size_t... Is>
+            struct all_fields_create_value_callable_impl<T, std::index_sequence<Is...>>
+                : std::bool_constant<all_fields_create_value_callable_fold<T, Is...>> {};
+
+            template <typename T>
+            constexpr bool all_fields_create_value_callable_v =
+                all_fields_create_value_callable_impl<T, std::make_index_sequence<boost::pfr::tuple_size_v<T>>>::value;
+
             template <typename T>
             concept to_json_with_reflection = std::is_aggregate_v<T> &&
                 (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
-                []<std::size_t... Is>(std::index_sequence<Is...>) {
-                    return boost::pfr::tuple_size_v<T> > 0 && requires(const T& t) {
-                        (std::declval<object_ref&>().emplace(yyjson::detail::transformed_name_v<Is, T>,
-                                                             boost::pfr::get<Is>(t)),
-                         ...);
-                    };
-                }(std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
+                (boost::pfr::tuple_size_v<T> > 0) &&
+                all_fields_create_value_callable_v<T>;
 
         }  // namespace detail
 

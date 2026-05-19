@@ -2221,6 +2221,21 @@ struct AggregateWithDirectOptional
     bool operator==(const AggregateWithDirectOptional&) const = default;
 };
 
+struct SubAggregate
+{
+    std::string tag;
+    bool active = false;
+    bool operator==(const SubAggregate&) const = default;
+};
+
+struct NestedAggregateWithOptional
+{
+    std::string label;
+    SubAggregate sub;
+    std::optional<std::string> note;
+    bool operator==(const NestedAggregateWithOptional&) const = default;
+};
+
 TEST(Writer, PredefinedCaster)
 {
     using namespace yyjson::writer;  // NOLINT
@@ -2548,6 +2563,20 @@ TEST(Writer, PredefinedCaster)
         // Verify null optional produces JSON null
         EXPECT_TRUE(obj2["nickname"].is_null());
         EXPECT_TRUE(obj2["score"].is_null());
+    }
+
+    // Regression: nested aggregate with sub-aggregate and optional fields
+    {
+        auto n1 = NestedAggregateWithOptional{.label = "root", .sub = {"child", true}, .note = "has note"};
+        auto obj1 = object(n1);
+        auto n1b = cast<NestedAggregateWithOptional>(obj1);
+        EXPECT_EQ(n1, n1b);
+
+        auto n2 = NestedAggregateWithOptional{.label = "root2", .sub = {"child2", false}, .note = std::nullopt};
+        auto obj2 = object(n2);
+        auto n2b = cast<NestedAggregateWithOptional>(obj2);
+        EXPECT_EQ(n2, n2b);
+        EXPECT_TRUE(obj2["note"].is_null());
     }
 
 // Regression: std::monostate direct deserialization from JSON null
