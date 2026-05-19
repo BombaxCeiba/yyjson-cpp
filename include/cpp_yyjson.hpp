@@ -739,8 +739,14 @@ namespace yyjson
                         {default_caster<T>::from_json(v)} -> std::same_as<T>;
                     };  // clang-format on
 
+#ifdef _MSC_VER
+            namespace _msvc_check { constexpr void _value_ref(const abstract_value_ref&) {} }
+            template <class Derived>
+            concept base_of_value_ref = requires(Derived d) { _msvc_check::_value_ref(d); };
+#else
             template <class Derived>
             concept base_of_value_ref = requires(Derived d) { [](const abstract_value_ref&) {}(d); };
+#endif
         }  // namespace detail
     }  // namespace reader
 
@@ -803,6 +809,22 @@ namespace yyjson
             template <typename DocType>
             class object_iter;
 
+#ifdef _MSC_VER
+            namespace _msvc_check {
+                template <typename X> constexpr void _value(const abstract_value<X>&) {}
+                template <typename X> constexpr void _const_value(const const_value_base<X>&) {}
+                template <typename X> constexpr void _array(const const_array_base<X>&) {}
+                template <typename X> constexpr void _object(const const_object_base<X>&) {}
+            }
+            template <class Derived>
+            concept base_of_value = requires(Derived d) { _msvc_check::_value(d); };
+            template <class Derived>
+            concept base_of_const_value = requires(Derived d) { _msvc_check::_const_value(d); };
+            template <class Derived>
+            concept base_of_array = requires(Derived d) { _msvc_check::_array(d); };
+            template <class Derived>
+            concept base_of_object = requires(Derived d) { _msvc_check::_object(d); };
+#else
             template <class Derived>
             concept base_of_value = requires(Derived d) { []<typename X>(const abstract_value<X>&) {}(d); };
 
@@ -814,6 +836,7 @@ namespace yyjson
 
             template <class Derived>
             concept base_of_object = requires(Derived d) { []<typename X>(const const_object_base<X>&) {}(d); };
+#endif
 
 #pragma region caster
             template <typename T>
@@ -973,12 +996,23 @@ namespace yyjson
                     doc.create_array(std::forward<T>(t));
                     doc.create_array(std::forward<T>(t), copy_string);
                 };
+#ifdef _MSC_VER
+            template <typename T, typename DocType = mutable_document>
+            concept create_object_callable =
+                (!base_of_value<std::remove_cvref_t<T>>) &&
+                (!reader::detail::base_of_value_ref<std::remove_cvref_t<T>>) &&
+                std::is_aggregate_v<std::remove_cvref_t<T>> &&
+                (!std::is_array_v<std::remove_cvref_t<T>>);
+
+            // MSVC diagnostic: verify concept works for aggregates
+#else
             template <typename T, typename DocType = mutable_document>
             concept create_object_callable =
                 (!base_of_value<T>) && (!reader::detail::base_of_value_ref<T>) && requires(T&& t, DocType doc) {
                     doc.create_object(std::forward<T>(t));
                     doc.create_object(std::forward<T>(t), copy_string);
                 };
+#endif
 
             template <typename T>
             concept create_value_from_caster =
@@ -1027,7 +1061,7 @@ namespace yyjson
 
                 template <base_of_object V>
                 requires V::is_mutable_reference
-                auto get_empty_value_ref() noexcept
+                V get_empty_value_ref() noexcept
                 {
                     return V(*this, yyjson_mut_obj(ptrs->self));
                 }
@@ -1264,8 +1298,13 @@ namespace yyjson
                     // empty object
                     return yyjson_mut_obj(ptrs->self);
                 }
+#ifdef _MSC_VER
+                template <typename T, copy_string_args... Ts>
+                requires (!create_object_callable<T>) && convertible_to_create_object_callable<T>
+#else
                 template <typename T, copy_string_args... Ts>
                 requires (!to_json_obj_defined<T>) && convertible_to_create_object_callable<T>
+#endif
                 auto create_object(T&& t, Ts... ts) noexcept
                 {
                     // T -(convert)-> object
@@ -1369,6 +1408,17 @@ namespace yyjson
                     }
                     return result;
                 }
+#ifdef _MSC_VER
+                template <typename T, copy_string_args... Ts>
+                requires create_object_callable<T>
+                auto create_object(T&& t, Ts... ts) noexcept
+                {
+                    auto result = yyjson_mut_obj(ptrs->self);
+                    auto vr = object_ref(*this, result);
+                    default_caster<std::remove_cvref_t<T>>::to_json(vr, std::forward<T>(t), ts...);
+                    return result;
+                }
+#else
                 template <to_json_obj_defined T, copy_string_args... Ts>
                 auto create_object(T&& t, Ts... ts) noexcept
                 {
@@ -1379,6 +1429,7 @@ namespace yyjson
                     to_json_wrapper(vr, std::forward<T>(t), ts...);
                     return vr.val_;
                 }
+#endif
 
                 template <create_primitive_callable T, copy_string_args... Ts>
                 auto create_value(T&& t, Ts... ts) noexcept
@@ -3045,6 +3096,20 @@ namespace yyjson
                 using base = const_object_base<DocType>;
                 using base::base;
 
+#ifdef _MSC_VER
+            public:
+                // MSVC does not properly inherit constrained constructors via using base::base.
+                template <typename T, copy_string_args... Ts>
+                requires create_object_callable<T>
+                explicit mutable_object_base(T&& t, Ts... ts)
+                {
+                    base::val_ = base::doc_.create_object(std::forward<T>(t), ts...);
+                    base::check_error();
+                    base::set_root();
+                }
+            private:
+#endif
+
                 template <typename Key, create_value_from_caster T, copy_string_args... Ts>
                 requires key_type<std::remove_cvref_t<Key&&>> && (!create_object_callable<T>)
                 auto object_append(Key&& key, T&& t, Ts... ts) noexcept
@@ -3399,28 +3464,14 @@ namespace yyjson
                 return std::nullopt;
             }
 
-            template <typename T, std::size_t... Is>
-            constexpr bool all_fields_serializable_fold =
-                ((create_value_callable<boost::pfr::tuple_element_t<Is, T>> ||
-                  base_of_value<boost::pfr::tuple_element_t<Is, T>> ||
-                  reader::detail::base_of_value_ref<boost::pfr::tuple_element_t<Is, T>>) && ...);
-
-            template <typename T, typename>
-            struct all_fields_serializable_impl : std::false_type {};
-
-            template <typename T, std::size_t... Is>
-            struct all_fields_serializable_impl<T, std::index_sequence<Is...>>
-                : std::bool_constant<all_fields_serializable_fold<T, Is...>> {};
-
-            template <typename T>
-            constexpr bool all_fields_serializable_v =
-                all_fields_serializable_impl<T, std::make_index_sequence<boost::pfr::tuple_size_v<T>>>::value;
-
             template <typename T>
             concept to_json_with_reflection = std::is_aggregate_v<T> &&
                 (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
                 (boost::pfr::tuple_size_v<T> > 0) &&
-                all_fields_serializable_v<T>;
+                (!base_of_value<T>) && (!base_of_array<T>) &&
+                (!reader::detail::base_of_value_ref<T>) &&
+                (!std::is_same_v<std::remove_cvref_t<T>, mutable_document>) &&
+                (!std::is_same_v<std::remove_cvref_t<T>, mutable_document_ptrs>);
 
         }  // namespace detail
 
@@ -4211,7 +4262,7 @@ namespace yyjson
 
     template <typename Json, typename T>
     concept all_fields_castable =
-        json_object<Json> && std::is_aggregate_v<T> && (!std::is_array_v<T>) && (!detail::has_base<T>) && all_fields_castable_impl<Json, T>();
+        json_object<Json> && std::is_aggregate_v<T> && (!std::is_array_v<T>) && (!detail::has_base<T>) && (boost::pfr::tuple_size_v<T> > 0);
 
     template <typename T>
     struct detail::default_caster
@@ -4377,7 +4428,7 @@ namespace yyjson
             else if constexpr (std::floating_point<T>)
             {
                 if (json.is_real())
-                    return T(*json.as_real());
+                    return static_cast<T>(*json.as_real());
                 if (const auto vui = json.as_uint(); vui.has_value())
                     return T(*vui);
                 if (const auto vsi = json.as_sint(); vsi.has_value())
@@ -4531,13 +4582,17 @@ namespace yyjson
                 else if (json.is_real())
                 {
 #ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244)
                     if constexpr (requires { T(std::declval<double>()); })
+                        return static_cast<T>(*json.as_real());
+#pragma warning(pop)
 #else
                     if constexpr (std::constructible_from<T, double>)
-#endif
-                        return T(*json.as_real());
+                        return static_cast<T>(*json.as_real());
                     else
                         throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
+#endif
                 }
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from raw json", type_name<T>()));
             }
