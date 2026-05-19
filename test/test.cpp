@@ -2523,6 +2523,14 @@ TEST(Writer, PredefinedCaster)
     EXPECT_EQ(outer.version, outer2.version);
     EXPECT_EQ(outer.status, outer2.status);
     EXPECT_EQ(outer.items, outer2.items);
+
+    // Regression: std::monostate direct deserialization from JSON null
+    {
+        auto null_val = value(nullptr);
+        auto ms = cast<std::monostate>(null_val);
+        (void)ms;
+        EXPECT_THROW(cast<std::monostate>(value(42)), std::runtime_error);
+    }
 }
 
 TEST(Reader, Allocator)
