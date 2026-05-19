@@ -983,13 +983,13 @@ namespace yyjson
             template <typename T>
             concept create_value_from_caster =
                 (!base_of_value<T>) && (!reader::detail::base_of_value_ref<T>) &&
-                (!create_primitive_callable<T>) && (!create_array_callable<T>) && (!create_object_callable<T>) &&
+                (!create_primitive_callable<T>) && (!create_array_callable<T>) &&
                 (to_json_val_usr<T> || to_json_val_def<T>);
 
             template <typename T>
             concept create_value_callable =
-                create_primitive_callable<T> || create_array_callable<T> || create_object_callable<T> ||
-                create_value_from_caster<T>;
+                create_primitive_callable<T> || create_array_callable<T> ||
+                create_value_from_caster<T> || create_object_callable<T>;
 
             template <typename T>
             concept convertible_to_create_primitive_callable = requires(T&& t) {  // clang-format off
@@ -2298,6 +2298,7 @@ namespace yyjson
                 using base::base;
 
                 template <create_value_from_caster T, copy_string_args... Ts>
+                requires (!create_object_callable<T>)
                 auto array_append(T&& t, Ts... ts) noexcept
                 {
                     auto prev = static_cast<yyjson_mut_val*>(base::val_->uni.ptr);
@@ -3045,7 +3046,7 @@ namespace yyjson
                 using base::base;
 
                 template <typename Key, create_value_from_caster T, copy_string_args... Ts>
-                requires key_type<std::remove_cvref_t<Key&&>>
+                requires key_type<std::remove_cvref_t<Key&&>> && (!create_object_callable<T>)
                 auto object_append(Key&& key, T&& t, Ts... ts) noexcept
                 {
                     auto prev = static_cast<yyjson_mut_val*>(base::val_->uni.ptr);
@@ -3399,25 +3400,27 @@ namespace yyjson
             }
 
             template <typename T, std::size_t... Is>
-            constexpr bool all_fields_create_value_callable_fold =
-                (create_value_callable<boost::pfr::tuple_element_t<Is, T>> && ...);
+            constexpr bool all_fields_serializable_fold =
+                ((create_value_callable<boost::pfr::tuple_element_t<Is, T>> ||
+                  base_of_value<boost::pfr::tuple_element_t<Is, T>> ||
+                  reader::detail::base_of_value_ref<boost::pfr::tuple_element_t<Is, T>>) && ...);
 
             template <typename T, typename>
-            struct all_fields_create_value_callable_impl : std::false_type {};
+            struct all_fields_serializable_impl : std::false_type {};
 
             template <typename T, std::size_t... Is>
-            struct all_fields_create_value_callable_impl<T, std::index_sequence<Is...>>
-                : std::bool_constant<all_fields_create_value_callable_fold<T, Is...>> {};
+            struct all_fields_serializable_impl<T, std::index_sequence<Is...>>
+                : std::bool_constant<all_fields_serializable_fold<T, Is...>> {};
 
             template <typename T>
-            constexpr bool all_fields_create_value_callable_v =
-                all_fields_create_value_callable_impl<T, std::make_index_sequence<boost::pfr::tuple_size_v<T>>>::value;
+            constexpr bool all_fields_serializable_v =
+                all_fields_serializable_impl<T, std::make_index_sequence<boost::pfr::tuple_size_v<T>>>::value;
 
             template <typename T>
             concept to_json_with_reflection = std::is_aggregate_v<T> &&
                 (!std::is_array_v<T>) && (!yyjson::detail::has_base<T>) &&
                 (boost::pfr::tuple_size_v<T> > 0) &&
-                all_fields_create_value_callable_v<T>;
+                all_fields_serializable_v<T>;
 
         }  // namespace detail
 
