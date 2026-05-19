@@ -4328,19 +4328,19 @@ namespace yyjson
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
             }
             // --- String-like types ---
-            else if constexpr (std::constructible_from<T, std::string_view>)
+            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::string_view>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 return T(*json.as_string());
             }
-            else if constexpr (std::constructible_from<T, std::string>)
+            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::string>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 return T(std::string(*json.as_string()));
             }
-            else if constexpr (std::constructible_from<T, const char*>)
+            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, const char*>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
@@ -4401,19 +4401,19 @@ namespace yyjson
                 }(std::make_index_sequence<std::variant_size_v<T>>());
             }
             // --- Null-like types ---
-            else if constexpr (std::constructible_from<T, std::nullptr_t>)
+            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::nullptr_t>)
             {
                 if (!json.is_null())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
                 return T(nullptr);
             }
-            else if constexpr (std::constructible_from<T, std::nullopt_t>)
+            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::nullopt_t>)
             {
                 if (!json.is_null())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
                 return T(std::nullopt);
             }
-            else if constexpr (std::constructible_from<T, std::monostate>)
+            else if constexpr (std::same_as<T, std::monostate>)
             {
                 if (!json.is_null())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON null", type_name<T>()));
