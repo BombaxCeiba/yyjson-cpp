@@ -15,6 +15,7 @@ struct WithJsonValueDto { std::string type; yyjson::value data; std::string stat
 struct SignalsDto { bool succeeded = false; bool failed = false; bool cancelled = false; bool operator==(const SignalsDto&) const = default; };
 struct DiagnosticDto { std::string severity; std::string code; std::string message; std::optional<std::string> path; std::optional<int64_t> provider_code; bool operator==(const DiagnosticDto&) const = default; };
 struct ResultDto { int32_t version = 1; std::string status; std::vector<std::string> completed_tasks; bool stopped = false; std::vector<DiagnosticDto> diagnostics; SignalsDto signals; bool operator==(const ResultDto&) const = default; };
+struct AggregateWithNarrowFirstField { int32_t version = 1; std::string name; bool operator==(const AggregateWithNarrowFirstField&) const = default; };
 
 TEST(MsvcRegression, OptionalFieldsRoundTrip) {
     using namespace yyjson;
@@ -63,6 +64,18 @@ TEST(MsvcRegression, WithJsonValueFieldSerialization) {
     EXPECT_TRUE(str.find(R"("type":"test")") != std::string::npos);
     EXPECT_TRUE(str.find(R"("key":"value")") != std::string::npos);
     EXPECT_TRUE(str.find(R"("status":"ok")") != std::string::npos);
+}
+
+TEST(MsvcRegression, AggregateValueCastDoesNotUsePrimitiveFallback) {
+    using namespace yyjson;
+    AggregateWithNarrowFirstField original{.version = 7, .name = "snapshot"};
+    auto object_value = writer::value(original);
+    auto restored = cast<AggregateWithNarrowFirstField>(object_value);
+    EXPECT_EQ(restored.version, 7);
+    EXPECT_EQ(restored.name, "snapshot");
+
+    auto integer_value = writer::value(std::uint64_t{7});
+    EXPECT_THROW((void)cast<AggregateWithNarrowFirstField>(integer_value), bad_cast);
 }
 
 TEST(MsvcRegression, DeeplyNestedDto) {
