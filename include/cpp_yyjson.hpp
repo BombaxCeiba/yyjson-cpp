@@ -996,25 +996,12 @@ namespace yyjson
                     doc.create_array(std::forward<T>(t));
                     doc.create_array(std::forward<T>(t), copy_string);
                 };
-#if defined(_MSC_VER) && !defined(__clang__)
-            template <typename T, typename DocType = mutable_document>
-            concept create_object_callable =
-                (!base_of_value<std::remove_cvref_t<T>>) &&
-                (!reader::detail::base_of_value_ref<std::remove_cvref_t<T>>) &&
-                (!base_of_array<std::remove_cvref_t<T>>) &&
-                (!yyjson::detail::has_base<std::remove_cvref_t<T>>) &&
-                std::is_aggregate_v<std::remove_cvref_t<T>> &&
-                (!std::is_array_v<std::remove_cvref_t<T>>) &&
-                (boost::pfr::tuple_size_v<std::remove_cvref_t<T>> > 0);
-#else
             template <typename T, typename DocType = mutable_document>
             concept create_object_callable =
                 (!base_of_value<T>) && (!reader::detail::base_of_value_ref<T>) && requires(T&& t, DocType doc) {
                     doc.create_object(std::forward<T>(t));
                     doc.create_object(std::forward<T>(t), copy_string);
                 };
-#endif
-
             template <typename T>
             concept create_value_from_caster =
                 (!base_of_value<T>) && (!reader::detail::base_of_value_ref<T>) &&
@@ -1299,13 +1286,8 @@ namespace yyjson
                     // empty object
                     return yyjson_mut_obj(ptrs->self);
                 }
-#if defined(_MSC_VER) && !defined(__clang__)
-                template <typename T, copy_string_args... Ts>
-                requires (!create_object_callable<T>) && convertible_to_create_object_callable<T>
-#else
                 template <typename T, copy_string_args... Ts>
                 requires (!to_json_obj_defined<T>) && convertible_to_create_object_callable<T>
-#endif
                 auto create_object(T&& t, Ts... ts) noexcept
                 {
                     // T -(convert)-> object
@@ -1409,17 +1391,6 @@ namespace yyjson
                     }
                     return result;
                 }
-#if defined(_MSC_VER) && !defined(__clang__)
-                template <typename T, copy_string_args... Ts>
-                requires create_object_callable<T>
-                auto create_object(T&& t, Ts... ts) noexcept
-                {
-                    auto result = yyjson_mut_obj(ptrs->self);
-                    auto vr = object_ref(*this, result);
-                    default_caster<std::remove_cvref_t<T>>::to_json(vr, std::forward<T>(t), ts...);
-                    return result;
-                }
-#else
                 template <to_json_obj_defined T, copy_string_args... Ts>
                 auto create_object(T&& t, Ts... ts) noexcept
                 {
@@ -1430,8 +1401,6 @@ namespace yyjson
                     to_json_wrapper(vr, std::forward<T>(t), ts...);
                     return vr.val_;
                 }
-#endif
-
                 template <create_primitive_callable T, copy_string_args... Ts>
                 auto create_value(T&& t, Ts... ts) noexcept
                 {
@@ -4636,18 +4605,12 @@ namespace yyjson
     template <typename T>
     struct caster<std::optional<T>>
     {
-#if defined(_MSC_VER) && !defined(__clang__)
-        template <detail::copy_string_args... Ts>
-        requires writer::detail::create_value_callable<T>
-        static auto to_json(writer::value_ref& v, const std::optional<T>& t, Ts...)
-#else
         template <detail::copy_string_args... Ts>
         requires requires(writer::value_ref& v, T t) {
             v = t;
             v = std::pair(t, copy_string);
         }
         static auto to_json(writer::value_ref& v, const std::optional<T>& t, Ts...)
-#endif
         {
             constexpr auto copy = (sizeof...(Ts) != 0);
             if constexpr (copy)
@@ -4659,18 +4622,12 @@ namespace yyjson
                 if (t.has_value()) v = *t;
             }
         }
-#if defined(_MSC_VER) && !defined(__clang__)
-        template <detail::copy_string_args... Ts>
-        requires writer::detail::create_value_callable<T>
-        static auto to_json(writer::value_ref& v, std::optional<T>&& t, Ts...)
-#else
         template <detail::copy_string_args... Ts>
         requires requires(writer::value_ref& v, T t) {
             v = t;
             v = std::pair(t, copy_string);
         }
         static auto to_json(writer::value_ref& v, std::optional<T>&& t, Ts...)
-#endif
         {
             constexpr auto copy = (sizeof...(Ts) != 0);
             if constexpr (copy)
