@@ -21,9 +21,10 @@ jobs:
         compiler:
           [
             { c: "clang-cl", cxx: "clang-cl" },
-            # { c: "cl", cxx: "cl" },
+            { c: "cl", cxx: "cl", toolset: "v143" },
+            { c: "cl", cxx: "cl", toolset: "v145" },
           ]
-    name: Windows - ${{ matrix.compiler.cxx }}
+    name: Windows - ${{ matrix.compiler.cxx }}${{ matrix.compiler.toolset && format(' ({0})', matrix.compiler.toolset) || '' }}
     runs-on: windows-latest
 
     env:
@@ -36,6 +37,8 @@ jobs:
 
       - name: Configure VS Toolchain
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: ${{ matrix.compiler.toolset || '' }}
 
       - name: Install dependencies
         run: vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
