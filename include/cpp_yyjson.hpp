@@ -4484,28 +4484,28 @@ namespace yyjson
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 if (const auto vui = json.as_uint(); vui.has_value())
                 {
-                    if constexpr (std::constructible_from<T, std::uint64_t>)
+                    if constexpr (requires { T(std::declval<std::uint64_t>()); })
                         return T(*vui);
                     else
                         throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
                 }
                 else if (const auto vsi = json.as_sint(); vsi.has_value())
                 {
-                    if constexpr (std::constructible_from<T, std::int64_t>)
+                    if constexpr (requires { T(std::declval<std::int64_t>()); })
                         return T(*vsi);
                     else
                         throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON integer", type_name<T>()));
                 }
                 else if (json.is_bool())
                 {
-                    if constexpr (std::constructible_from<T, bool>)
+                    if constexpr (requires { T(std::declval<bool>()); })
                         return T(*json.as_bool());
                     else
                         throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON bool", type_name<T>()));
                 }
                 else if (json.is_real())
                 {
-                    if constexpr (std::constructible_from<T, double>)
+                    if constexpr (requires { T(std::declval<double>()); })
                         return static_cast<T>(*json.as_real());
                     else
                         throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
