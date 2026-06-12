@@ -4323,6 +4323,9 @@ namespace yyjson
 #pragma GCC diagnostic ignored "-Wfloat-equal"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wshorten-64-to-32"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4244)
 #endif
         template <typename Json>
         requires (std::same_as<reader::const_value_ref, Json> || writer::detail::base_of_const_value<Json>)
@@ -4522,6 +4525,8 @@ namespace yyjson
         }
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
         template <copy_string_args... Ts>
