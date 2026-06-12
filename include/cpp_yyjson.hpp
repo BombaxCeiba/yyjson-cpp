@@ -739,8 +739,12 @@ namespace yyjson
                         {default_caster<T>::from_json(v)} -> std::same_as<T>;
                     };  // clang-format on
 
+            namespace _detail
+            {
+                constexpr void _value_ref(const abstract_value_ref&) {}
+            }
             template <class Derived>
-            concept base_of_value_ref = requires(Derived d) { [](const abstract_value_ref&) {}(d); };
+            concept base_of_value_ref = requires(Derived d) { _detail::_value_ref(d); };
         }  // namespace detail
     }  // namespace reader
 
@@ -803,17 +807,24 @@ namespace yyjson
             template <typename DocType>
             class object_iter;
 
+            namespace _detail
+            {
+                template <typename X> constexpr void _value(const abstract_value<X>&) {}
+                template <typename X> constexpr void _const_value(const const_value_base<X>&) {}
+                template <typename X> constexpr void _array(const const_array_base<X>&) {}
+                template <typename X> constexpr void _object(const const_object_base<X>&) {}
+            }
             template <class Derived>
-            concept base_of_value = requires(Derived d) { []<typename X>(const abstract_value<X>&) {}(d); };
+            concept base_of_value = requires(Derived d) { _detail::_value(d); };
 
             template <class Derived>
-            concept base_of_const_value = requires(Derived d) { []<typename X>(const const_value_base<X>&) {}(d); };
+            concept base_of_const_value = requires(Derived d) { _detail::_const_value(d); };
 
             template <class Derived>
-            concept base_of_array = requires(Derived d) { []<typename X>(const const_array_base<X>&) {}(d); };
+            concept base_of_array = requires(Derived d) { _detail::_array(d); };
 
             template <class Derived>
-            concept base_of_object = requires(Derived d) { []<typename X>(const const_object_base<X>&) {}(d); };
+            concept base_of_object = requires(Derived d) { _detail::_object(d); };
 
 #pragma region caster
             template <typename T>
