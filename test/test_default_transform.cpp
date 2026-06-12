@@ -4,28 +4,23 @@
 #include <string>
 #include "cpp_yyjson.hpp"
 
-// ---- Test structs ----
+// ---- Test structs (file scope with prefix to avoid ODR / boost::pfr C7631) ----
 
-namespace
-{
-
-struct DefaultCamelStruct
+struct DefaultTransformCamelStruct
 {
     int user_name;
     bool is_active;
 };
 
-struct OverrideStruct
+struct DefaultTransformOverrideStruct
 {
     int value_;
     std::string name_;
 };
 
-} // anonymous namespace
-
-// OverrideStruct explicitly uses identity (overrides the macro default)
+// DefaultTransformOverrideStruct explicitly uses identity (overrides the macro default)
 template <>
-struct yyjson::field_name_rule<OverrideStruct>
+struct yyjson::field_name_rule<DefaultTransformOverrideStruct>
 {
     using type = yyjson::identity_transform;
     static constexpr std::array<std::string_view, 1> suffixes{"_"};
@@ -37,7 +32,7 @@ TEST(DefaultTransform, InheritedRule)
 {
     using namespace yyjson;
 
-    DefaultCamelStruct s{.user_name = 42, .is_active = true};
+    DefaultTransformCamelStruct s{.user_name = 42, .is_active = true};
     auto str = writer::value(s).write();
 
     EXPECT_TRUE(str.find("\"userName\"") != std::string::npos);
@@ -50,11 +45,11 @@ TEST(DefaultTransform, InheritedRoundTrip)
 {
     using namespace yyjson;
 
-    DefaultCamelStruct original{.user_name = 42, .is_active = true};
+    DefaultTransformCamelStruct original{.user_name = 42, .is_active = true};
     auto str = writer::value(original).write();
 
     auto val = read(str);
-    auto restored = cast<DefaultCamelStruct>(*val.as_object());
+    auto restored = cast<DefaultTransformCamelStruct>(*val.as_object());
 
     EXPECT_EQ(restored.user_name, 42);
     EXPECT_EQ(restored.is_active, true);
@@ -66,7 +61,7 @@ TEST(DefaultTransform, InheritedDeserialization)
 
     const char* json_str = R"({"userName": 99, "isActive": false})";
     auto val = read(json_str);
-    auto restored = cast<DefaultCamelStruct>(*val.as_object());
+    auto restored = cast<DefaultTransformCamelStruct>(*val.as_object());
 
     EXPECT_EQ(restored.user_name, 99);
     EXPECT_EQ(restored.is_active, false);
@@ -76,7 +71,7 @@ TEST(DefaultTransform, ExplicitOverrideTakesPriority)
 {
     using namespace yyjson;
 
-    OverrideStruct s{.value_ = 10, .name_ = "test"};
+    DefaultTransformOverrideStruct s{.value_ = 10, .name_ = "test"};
     auto str = writer::value(s).write();
 
     EXPECT_TRUE(str.find("\"value\"") != std::string::npos);
@@ -88,11 +83,11 @@ TEST(DefaultTransform, ExplicitOverrideRoundTrip)
 {
     using namespace yyjson;
 
-    OverrideStruct original{.value_ = 10, .name_ = "test"};
+    DefaultTransformOverrideStruct original{.value_ = 10, .name_ = "test"};
     auto str = writer::value(original).write();
 
     auto val = read(str);
-    auto restored = cast<OverrideStruct>(*val.as_object());
+    auto restored = cast<DefaultTransformOverrideStruct>(*val.as_object());
 
     EXPECT_EQ(restored.value_, 10);
     EXPECT_EQ(restored.name_, "test");
