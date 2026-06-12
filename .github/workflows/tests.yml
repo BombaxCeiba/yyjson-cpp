@@ -18,13 +18,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler:
-          [
-            { c: "clang-cl", cxx: "clang-cl" },
-            { c: "cl", cxx: "cl" },
-          ]
-    name: Windows - ${{ matrix.compiler.cxx }}${{ matrix.compiler.toolset && format(' ({0})', matrix.compiler.toolset) || '' }}
-    runs-on: windows-latest
+        include:
+          - c: "clang-cl"
+            cxx: "clang-cl"
+            runner: "windows-latest"
+            label: "clang-cl"
+          - c: "cl"
+            cxx: "cl"
+            runner: "windows-2022"
+            label: "cl (v143)"
+          - c: "cl"
+            cxx: "cl"
+            runner: "windows-latest"
+            label: "cl (latest)"
+    name: Windows - ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
 
     env:
       triplet: x64-windows
@@ -43,7 +51,7 @@ jobs:
       - name: Build and test
         run: |
           rm -rf "${{ github.workspace }}\build"
-          cmake -B "${{ github.workspace }}\build" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT\\scripts\\buildsystems\\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_C_COMPILER=${{ matrix.compiler.c }} -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} -G "Ninja Multi-Config"
+          cmake -B "${{ github.workspace }}\build" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT\\scripts\\buildsystems\\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -G "Ninja Multi-Config"
           # cmake --build "${{ github.workspace }}\build" --config Debug --clean-first
           # ctest --test-dir "${{ github.workspace }}\build" -C Debug
           cmake --build "${{ github.workspace }}\build" --config Release --clean-first
