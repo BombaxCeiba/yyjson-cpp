@@ -36,13 +36,19 @@ find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 # executables
-add_executable("${PROJECT_NAME}_test" test.cpp)
-target_link_libraries("${PROJECT_NAME}_test"
-                      PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
+# Skip test.cpp under MSVC cl — it contains 1000+ static_assert checks
+# for constructible_from that rely on clang/gcc SFINAE behavior.
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_executable("${PROJECT_NAME}_test" test.cpp)
+  target_link_libraries("${PROJECT_NAME}_test"
+                        PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
+endif()
 
 # add google test
 include(GoogleTest)
-gtest_discover_tests("${PROJECT_NAME}_test" DISCOVERY_MODE PRE_TEST)
+if(TARGET "${PROJECT_NAME}_test")
+  gtest_discover_tests("${PROJECT_NAME}_test" DISCOVERY_MODE PRE_TEST)
+endif()
 
 add_executable("${PROJECT_NAME}_test_name_transform" test_name_transform.cpp)
 target_link_libraries("${PROJECT_NAME}_test_name_transform"
