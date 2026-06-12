@@ -59,6 +59,12 @@ target_link_libraries("${PROJECT_NAME}_test_msvc_regression"
                       PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
 gtest_discover_tests("${PROJECT_NAME}_test_msvc_regression" DISCOVERY_MODE PRE_TEST)
 
+add_executable("${PROJECT_NAME}_test_aggregate_fallback" test_aggregate_fallback.cpp)
+target_link_libraries("${PROJECT_NAME}_test_aggregate_fallback"
+                      PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
+gtest_discover_tests("${PROJECT_NAME}_test_aggregate_fallback" DISCOVERY_MODE PRE_TEST)
+
+
 # benchmark
 if(CPPYYJSON_BUILD_BENCH)
   # Google benchmark
