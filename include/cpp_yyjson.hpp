@@ -1398,7 +1398,7 @@ namespace yyjson
                     return create_object(std::forward<T>(t), ts...);
                 }
                 template <create_value_callable T, copy_string_args... Ts>
-                auto set_value(yyjson_mut_val* dst, T&& t, Ts... ts) noexcept
+                auto set_value(yyjson_mut_val* dst, T&& t, [[maybe_unused]] Ts... ts) noexcept
                 {
                     using value_type = std::remove_cvref_t<T>;
                     constexpr auto copy = (sizeof...(Ts) != 0);
