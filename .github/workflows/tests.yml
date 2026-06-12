@@ -47,13 +47,13 @@ jobs:
 
       - name: Install dependencies
         run: vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
+        env:
+          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
       - name: Build and test
         run: |
           rm -rf "${{ github.workspace }}\build"
           cmake -B "${{ github.workspace }}\build" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT\\scripts\\buildsystems\\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ env.triplet }} -DCMAKE_C_COMPILER=${{ matrix.c }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -G "Ninja Multi-Config"
-          # cmake --build "${{ github.workspace }}\build" --config Debug --clean-first
-          # ctest --test-dir "${{ github.workspace }}\build" -C Debug
           cmake --build "${{ github.workspace }}\build" --config Release --clean-first
           ctest --test-dir "${{ github.workspace }}\build" -C Release
         shell: bash
@@ -112,6 +112,8 @@ jobs:
             PKGS="$PKGS fmt"
           fi
           CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} vcpkg install $PKGS --triplet ${{ env.triplet }}
+        env:
+          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
       - name: Build and test
         run: |
@@ -169,6 +171,8 @@ jobs:
           git clone --depth 1 https://github.com/microsoft/vcpkg.git external/vcpkg
           ./external/vcpkg/bootstrap-vcpkg.sh
           CC=${{ matrix.compiler.c }} CXX=${{ matrix.compiler.cxx }} ./external/vcpkg/vcpkg install yyjson fmt gtest boost-pfr --triplet ${{ env.triplet }}
+        env:
+          VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
       - name: Build and test
         run: |
