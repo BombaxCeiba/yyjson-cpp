@@ -29,8 +29,8 @@ jobs:
             label: "cl (v143)"
           - c: "cl"
             cxx: "cl"
-            runner: "windows-latest"
-            label: "cl (latest)"
+            runner: "windows-2025-vs2026"
+            label: "cl (v145)"
     name: Windows - ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
 
