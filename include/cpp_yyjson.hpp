@@ -340,15 +340,15 @@ namespace yyjson
         return static_cast<yyjson::ReadFlag>(to_underlying(lhs) & to_underlying(rhs));
     }
 
-    struct copy_string_t
+    struct [[maybe_unused]] copy_string_t
     {
     } inline constexpr copy_string;
 
-    struct empty_array_t
+    struct [[maybe_unused]] empty_array_t
     {
     } inline constexpr empty_array;
 
-    struct empty_object_t
+    struct [[maybe_unused]] empty_object_t
     {
     } inline constexpr empty_object;
 
