@@ -2304,6 +2304,17 @@ namespace yyjson
                 using base = const_array_base<DocType>;
                 using base::base;
 
+            public:
+                // MSVC cannot inherit constrained template constructors via `using base::base`,
+                // so the create_array_callable ctor must be re-declared here explicitly.
+                template <create_array_callable T, copy_string_args... Ts>
+                requires base::is_value_type
+                mutable_array_base(T&& t, Ts... ts)  // NOLINT
+                    : base(std::forward<T>(t), ts...)
+                {
+                }
+
+            private:
                 template <create_value_from_caster T, copy_string_args... Ts>
                 requires (!create_object_callable<T>)
                 auto array_append(T&& t, Ts... ts) noexcept
@@ -3052,7 +3063,17 @@ namespace yyjson
                 using base = const_object_base<DocType>;
                 using base::base;
 
+            public:
+                // MSVC cannot inherit constrained template constructors via `using base::base`,
+                // so the create_object_callable ctor must be re-declared here explicitly.
+                template <create_object_callable T, copy_string_args... Ts>
+                requires base::is_value_type
+                mutable_object_base(T&& t, Ts... ts)  // NOLINT
+                    : base(std::forward<T>(t), ts...)
+                {
+                }
 
+            private:
                 template <typename Key, create_value_from_caster T, copy_string_args... Ts>
                 requires key_type<std::remove_cvref_t<Key&&>> && (!create_object_callable<T>)
                 auto object_append(Key&& key, T&& t, Ts... ts) noexcept
