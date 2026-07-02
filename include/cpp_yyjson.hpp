@@ -4352,8 +4352,25 @@ namespace yyjson
         requires (std::same_as<reader::const_value_ref, Json> || writer::detail::base_of_const_value<Json>)
         static auto from_json(const Json& json)
         {
+            // --- Library's own value-owning types (writer value/array/object) ---
+            // Deep-copy the JSON subtree into a fresh self-owned value via the
+            // implicit converting constructor (T(json) -> doc_.copy_value). This
+            // MUST rank ahead of the scalar/string branches: due to constructors
+            // inherited through `using base::base`, std::constructible_from<value,
+            // string_view> spuriously evaluates to true (on both MSVC and clang),
+            // which would otherwise misroute object/array input into the string
+            // branch and throw "is not constructible from JSON string".
+            // default_initializable<T> excludes the non-owning _ref view types
+            // (value_ref/array_ref/object_ref), which have no default ctor and
+            // cannot be a cast target.
+            if constexpr (std::default_initializable<T> &&
+                          writer::detail::base_of_value<T> &&
+                          requires(const Json& j) { T(j); })
+            {
+                return T(json);
+            }
             // --- Scalar types: compile-time dispatch ---
-            if constexpr (std::same_as<T, bool>)
+            else if constexpr (std::same_as<T, bool>)
             {
                 if (json.is_bool())
                     return *json.as_bool();
@@ -4403,19 +4420,27 @@ namespace yyjson
                 throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON number", type_name<T>()));
             }
             // --- String-like types ---
-            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::string_view>)
+            // base_of_value<T> guard is belt-and-suspenders: the deep-copy branch
+            // above already short-circuits library value types, but exclude them
+            // here too so the inherited-ctor constructible_from false-positive
+            // (see comment above) can never misroute a value type into string
+            // construction, even if the deep-copy branch is somehow not reached.
+            else if constexpr (!std::is_aggregate_v<T> && !writer::detail::base_of_value<T> &&
+                                std::constructible_from<T, std::string_view>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 return T(*json.as_string());
             }
-            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, std::string>)
+            else if constexpr (!std::is_aggregate_v<T> && !writer::detail::base_of_value<T> &&
+                                std::constructible_from<T, std::string>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
                 return T(std::string(*json.as_string()));
             }
-            else if constexpr (!std::is_aggregate_v<T> && std::constructible_from<T, const char*>)
+            else if constexpr (!std::is_aggregate_v<T> && !writer::detail::base_of_value<T> &&
+                                std::constructible_from<T, const char*>)
             {
                 if (!json.is_string())
                     throw bad_cast(CPPYYJSON_FMT_NS::format("{} is not constructible from JSON string", type_name<T>()));
