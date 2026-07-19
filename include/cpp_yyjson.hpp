@@ -1666,7 +1666,12 @@ namespace yyjson
                 auto& get_has_parent() & noexcept
                 {
                     if constexpr (is_value_type)
+                    {
+                        // moved-from 对象的 has_parent_(shared_ptr)可能被移空;
+                        // 防御性重建,避免解引用空 shared_ptr 导致 null-deref。
+                        if (!has_parent_) has_parent_ = std::make_shared<bool>(false);
                         return *has_parent_;
+                    }
                     else
                         return has_parent_;
                 }
@@ -2014,7 +2019,20 @@ namespace yyjson
                 }
                 mutable_value_base& operator=(mutable_value_base&& t) noexcept
                 {
-                    base::doc_.set_value(base::val_, std::move(t), base::get_has_parent());
+                    if constexpr (base::is_value_type)
+                    {
+                        // owning value 的 move = 整棵 doc 所有权转移。
+                        // set_value 的"内容覆盖 + 挂 children 保活"是 reference value 的 node
+                        // 编辑语义,owning 走它会让 moved-from val_ 悬挂、has_parent_ 空,且
+                        // 每次 move 把 src doc 塞 dst.children 累积。reference value 仍走 set_value。
+                        base::doc_ = std::move(t.doc_);
+                        base::val_ = t.val_;
+                        base::has_parent_ = std::move(t.has_parent_);
+                    }
+                    else
+                    {
+                        base::doc_.set_value(base::val_, std::move(t), base::get_has_parent());
+                    }
                     return *this;
                 }
                 template <create_value_callable T>

@@ -652,16 +652,16 @@ TEST(Writer, ValueConversion)
     v = value();
     EXPECT_TRUE(v.is_null());
     EXPECT_EQ(nullptr, *v.as_null());
-    EXPECT_EQ(1, v.count_children());
+    EXPECT_EQ(0, v.count_children());
     v = {1, value(2), value(3)};
     EXPECT_TRUE(v.is_array());
-    EXPECT_EQ(4, v.count_children());
+    EXPECT_EQ(3, v.count_children());
     v = {{"a", 1}, {"b", value(2)}, {"c", value(3)}};
     EXPECT_TRUE(v.is_object());
-    EXPECT_EQ(7, v.count_children());
+    EXPECT_EQ(6, v.count_children());
     v = {{{"a", 1}, {"b", value(2)}, {"c", value(3)}}, yyjson::copy_string};
     EXPECT_TRUE(v.is_object());
-    EXPECT_EQ(8, v.count_children());
+    EXPECT_EQ(3, v.count_children());
 
     // method return types
     static_assert(std::same_as<decltype(std::declval<value&>().as_int()), std::optional<std::int64_t>>);

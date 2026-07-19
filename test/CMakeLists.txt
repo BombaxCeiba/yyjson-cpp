@@ -80,6 +80,11 @@ target_link_libraries("${PROJECT_NAME}_test_value_cast"
                       PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
 gtest_discover_tests("${PROJECT_NAME}_test_value_cast" DISCOVERY_MODE PRE_TEST)
 
+add_executable("${PROJECT_NAME}_test_owning_value_move" test_owning_value_move.cpp)
+target_link_libraries("${PROJECT_NAME}_test_owning_value_move"
+                      PRIVATE ${PROJECT_NAME} GTest::gtest GTest::gtest_main)
+gtest_discover_tests("${PROJECT_NAME}_test_owning_value_move" DISCOVERY_MODE PRE_TEST)
+
 
 # benchmark
 if(CPPYYJSON_BUILD_BENCH)
